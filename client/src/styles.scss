@@ -1,0 +1,140 @@
+@use '@angular/material' as mat;
+@use './theme-colors' as syncsphere;
+
+html {
+  box-sizing: border-box;
+  color-scheme: light;
+
+  @include mat.theme(
+    (
+      color: (
+        primary: syncsphere.$primary-palette,
+        tertiary: syncsphere.$tertiary-palette,
+        theme-type: light,
+      ),
+      typography: (
+        plain-family: ('Poppins', 'Helvetica Neue', Arial, sans-serif),
+        brand-family: ('Poppins', 'Helvetica Neue', Arial, sans-serif),
+        bold-weight: 700,
+        medium-weight: 500,
+        regular-weight: 400,
+      ),
+      density: 0,
+    )
+  );
+
+  --app-font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+  --app-primary: #16834a;
+  --app-accent: #22a05a;
+  --app-success: #16a34a;
+  --app-background: #f1f8f3;
+  --app-surface: #ffffff;
+  --app-text: #10251b;
+  --app-text-muted: #4b5f54;
+  --app-border: #d5e5da;
+}
+
+html.theme-dark {
+  color-scheme: dark;
+
+  @include mat.theme(
+    (
+      color: (
+        primary: syncsphere.$primary-palette,
+        tertiary: syncsphere.$tertiary-palette,
+        theme-type: dark,
+      ),
+    )
+  );
+
+  --app-primary: #22a05a;
+  --app-accent: #16a34a;
+  --app-success: #16a34a;
+  --app-background: #10251b;
+  --app-surface: #1b3326;
+  --app-text: #e8f2ec;
+  --app-text-muted: #a8bfb2;
+  --app-border: #2e4a3a;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--app-font-family);
+  background-color: var(--app-background);
+  color: var(--app-text);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+label,
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+}
+
+.cdk-overlay-container {
+  font-family: var(--app-font-family);
+}
+
+.page {
+  max-width: 720px;
+}
+
+.page--auth {
+  max-width: 100%;
+}
+
+.page--centered {
+  margin: 0 auto;
+  text-align: center;
+}
+
+.page__eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mat-sys-primary);
+}
+
+.page__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 600;
+  color: var(--mat-sys-primary);
+}
+
+.page__text {
+  margin: 0;
+  color: var(--app-text-muted);
+  line-height: 1.6;
+}
+
+.page__link {
+  display: inline-block;
+  margin-top: 1.25rem;
+  font-weight: 500;
+  color: var(--mat-sys-primary);
+}

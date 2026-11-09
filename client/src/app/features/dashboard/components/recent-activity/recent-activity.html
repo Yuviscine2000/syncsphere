@@ -1,0 +1,31 @@
+<mat-card appearance="outlined" class="dashboard-card">
+  <h2 id="recent-activity-heading" class="dashboard-card__title">
+    Recent activity
+  </h2>
+  <p class="dashboard-card__subtitle">
+    The latest demonstration updates across your workspace.
+  </p>
+
+  <ul class="activity-list">
+    @for (activity of activities(); track activity.id) {
+      <li class="activity-item">
+        <div class="activity-item__main">
+          <p class="activity-item__description">{{ activity.description }}</p>
+          <div class="activity-item__meta">
+            <span class="activity-item__category">{{ activity.category }}</span>
+            <time class="activity-item__time" [attr.datetime]="activity.timestamp">
+              {{ activity.timestamp | date: 'MMM d, y, h:mm a' }}
+            </time>
+          </div>
+        </div>
+        @if (activity.status; as status) {
+          <span
+            [class]="'activity-item__status activity-item__status--' + status"
+          >
+            {{ statusLabel(status) }}
+          </span>
+        }
+      </li>
+    }
+  </ul>
+</mat-card>

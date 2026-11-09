@@ -1,0 +1,41 @@
+<div class="dashboard">
+  <header class="dashboard-hero">
+    <div class="dashboard-hero__text">
+      <p class="dashboard-hero__eyebrow">Dashboard</p>
+      <h1 class="dashboard-hero__title">Welcome to SyncSphere</h1>
+      <p class="dashboard-hero__subtitle">
+        A clear overview of workspace activity, applications and collaboration.
+      </p>
+    </div>
+    <p class="dashboard-hero__date">
+      <span class="dashboard-hero__date-label">Today</span>
+      <span class="dashboard-hero__date-value">{{ formattedDate() }}</span>
+    </p>
+  </header>
+
+  <section class="dashboard-section" aria-labelledby="summary-heading">
+    <div class="dashboard-section__header">
+      <h2 id="summary-heading" class="dashboard-section__title">
+        Workspace summary
+      </h2>
+      <p class="dashboard-section__hint">Demonstration data</p>
+    </div>
+    <div class="summary-grid">
+      @for (card of summaryCards; track card.label) {
+        <app-summary-card [card]="card" />
+      }
+    </div>
+  </section>
+
+  <div class="dashboard-columns">
+    <app-application-status [statuses]="applicationStatuses" />
+    <app-quick-actions [actions]="quickActions" />
+  </div>
+
+  <app-recent-activity [activities]="recentActivities" />
+
+  <p class="dashboard-demo-note">
+    All values and activity on this dashboard are demonstration data and are not
+    live production metrics.
+  </p>
+</div>

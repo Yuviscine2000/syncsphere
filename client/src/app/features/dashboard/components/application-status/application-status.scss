@@ -1,0 +1,106 @@
+@use '../../styles/dashboard-card';
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.dashboard-card__title {
+  margin: 0 0 0.25rem;
+  color: var(--app-text);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.dashboard-card__subtitle {
+  margin: 0 0 1.25rem;
+  color: var(--app-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.status-overview {
+  display: flex;
+  overflow: hidden;
+  height: 12px;
+  margin-bottom: 1.25rem;
+  border-radius: 999px;
+  background-color: var(--app-border);
+}
+
+.status-overview__segment {
+  min-width: 4px;
+}
+
+.status-list {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-list__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.status-list__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.status-list__dot {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.status-list__value {
+  color: var(--app-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-list__track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--app-border) 70%, transparent);
+}
+
+.status-list__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.status-overview__segment--approved,
+.status-list__dot--approved,
+.status-list__fill--approved {
+  background-color: var(--status-approved);
+}
+
+.status-overview__segment--pending,
+.status-list__dot--pending,
+.status-list__fill--pending {
+  background-color: var(--status-pending);
+}
+
+.status-overview__segment--in-progress,
+.status-list__dot--in-progress,
+.status-list__fill--in-progress {
+  background-color: var(--status-in-progress);
+}
+
+.status-overview__segment--rejected,
+.status-list__dot--rejected,
+.status-list__fill--rejected {
+  background-color: var(--status-rejected);
+}

@@ -1,0 +1,79 @@
+@use '../../styles/dashboard-card';
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.dashboard-card__title {
+  margin: 0 0 0.25rem;
+  color: var(--app-text);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.dashboard-card__subtitle {
+  margin: 0 0 1.25rem;
+  color: var(--app-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.quick-action {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  min-height: 64px;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--app-primary) 5%, transparent);
+  color: var(--app-text);
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.quick-action:hover,
+.quick-action:focus-visible {
+  border-color: var(--mat-sys-primary);
+  background-color: color-mix(in srgb, var(--app-primary) 12%, transparent);
+}
+
+.quick-action:focus-visible {
+  outline: 2px solid var(--mat-sys-primary);
+  outline-offset: 2px;
+}
+
+.quick-action__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.quick-action__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.quick-action__arrow {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--mat-sys-primary);
+}
+
+.quick-action__description {
+  color: var(--app-text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}

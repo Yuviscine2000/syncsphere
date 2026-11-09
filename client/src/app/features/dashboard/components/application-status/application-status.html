@@ -1,0 +1,56 @@
+<mat-card appearance="outlined" class="dashboard-card">
+  <h2 id="application-status-heading" class="dashboard-card__title">
+    Application status
+  </h2>
+  <p class="dashboard-card__subtitle">
+    Distribution across all applications
+  </p>
+
+  <div
+    class="status-overview"
+    role="img"
+    aria-label="Application status distribution"
+  >
+    @for (status of statuses(); track status.key) {
+      <span
+        [class]="
+          'status-overview__segment status-overview__segment--' + status.key
+        "
+        [style.flexGrow]="status.value"
+        aria-hidden="true"
+      ></span>
+    }
+  </div>
+
+  <ul class="status-list">
+    @for (status of statuses(); track status.key) {
+      <li class="status-list__item">
+        <div class="status-list__header">
+          <span class="status-list__label">
+            <span
+              [class]="'status-list__dot status-list__dot--' + status.key"
+              aria-hidden="true"
+            ></span>
+            {{ status.label }}
+          </span>
+          <span class="status-list__value">
+            {{ status.value }} &middot; {{ status.percentage }}%
+          </span>
+        </div>
+        <div
+          class="status-list__track"
+          role="progressbar"
+          [attr.aria-label]="status.label + ' applications'"
+          [attr.aria-valuenow]="status.percentage"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <span
+            [class]="'status-list__fill status-list__fill--' + status.key"
+            [style.width.%]="status.percentage"
+          ></span>
+        </div>
+      </li>
+    }
+  </ul>
+</mat-card>

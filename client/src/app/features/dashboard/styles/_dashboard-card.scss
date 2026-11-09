@@ -1,0 +1,13 @@
+.dashboard-card,
+.summary-card {
+  --mat-card-outlined-container-color: var(--app-surface);
+  --mat-card-outlined-outline-color: var(--app-border);
+
+  height: 100%;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.summary-card {
+  padding: 1.25rem;
+}

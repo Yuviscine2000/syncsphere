@@ -1,0 +1,36 @@
+<header class="app-header">
+  <div class="app-header__inner">
+    <a class="app-brand" routerLink="/dashboard">SyncSphere</a>
+
+    <nav class="app-nav" aria-label="Primary">
+      <a routerLink="/dashboard" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
+      <a routerLink="/chat" routerLinkActive="is-active">Chat</a>
+      <a routerLink="/meetings" routerLinkActive="is-active">Meetings</a>
+      <a routerLink="/files" routerLinkActive="is-active">Files</a>
+      <a routerLink="/notifications" routerLinkActive="is-active">Notifications</a>
+      <a routerLink="/admin" routerLinkActive="is-active">Admin</a>
+      <a routerLink="/settings" routerLinkActive="is-active">Settings</a>
+    </nav>
+
+    <button
+      matButton="outlined"
+      type="button"
+      class="theme-toggle"
+      (click)="themeService.toggleTheme()"
+    >
+      {{ themeService.isDark() ? 'Switch to Light' : 'Switch to Dark' }}
+    </button>
+  </div>
+</header>
+
+<main class="app-main">
+  <div class="app-main__inner">
+    <router-outlet />
+  </div>
+</main>
+
+<footer class="app-footer">
+  <div class="app-footer__inner">
+    <p class="app-footer__text">SyncSphere</p>
+  </div>
+</footer>

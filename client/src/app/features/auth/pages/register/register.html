@@ -1,0 +1,114 @@
+<section class="page page--auth auth-page">
+  <header class="auth-page__header">
+    <h1 class="page__title">Create an account</h1>
+    <p class="page__text">Join SyncSphere to start collaborating.</p>
+  </header>
+
+  <form class="auth-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <mat-form-field appearance="outline" class="auth-form__field">
+      <mat-label>Full name</mat-label>
+      <input
+        matInput
+        type="text"
+        formControlName="fullName"
+        placeholder="Jane Doe"
+        autocomplete="name"
+        required
+      />
+      @if (showError('fullName', 'required')) {
+        <mat-error>Full name is required.</mat-error>
+      } @else if (showError('fullName', 'minlength')) {
+        <mat-error>Full name must be at least 2 characters.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="auth-form__field">
+      <mat-label>Email address</mat-label>
+      <input
+        matInput
+        type="email"
+        formControlName="email"
+        placeholder="you@example.com"
+        autocomplete="email"
+        inputmode="email"
+        required
+      />
+      @if (showError('email', 'required')) {
+        <mat-error>Email address is required.</mat-error>
+      } @else if (showError('email', 'email')) {
+        <mat-error>Enter a valid email address.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="auth-form__field">
+      <mat-label>Password</mat-label>
+      <input
+        matInput
+        [type]="passwordVisible() ? 'text' : 'password'"
+        formControlName="password"
+        placeholder="At least 8 characters"
+        autocomplete="new-password"
+        required
+      />
+      <button
+        matButton="text"
+        matSuffix
+        type="button"
+        class="password-toggle"
+        [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
+        [attr.aria-pressed]="passwordVisible()"
+        (click)="togglePasswordVisibility()"
+      >
+        {{ passwordVisible() ? 'Hide' : 'Show' }}
+      </button>
+      @if (showError('password', 'required')) {
+        <mat-error>Password is required.</mat-error>
+      } @else if (showError('password', 'minlength')) {
+        <mat-error>Password must be at least 8 characters.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="auth-form__field">
+      <mat-label>Confirm password</mat-label>
+      <input
+        matInput
+        [type]="confirmPasswordVisible() ? 'text' : 'password'"
+        formControlName="confirmPassword"
+        placeholder="Re-enter your password"
+        autocomplete="new-password"
+        required
+      />
+      <button
+        matButton="text"
+        matSuffix
+        type="button"
+        class="password-toggle"
+        [attr.aria-label]="
+          confirmPasswordVisible() ? 'Hide confirm password' : 'Show confirm password'
+        "
+        [attr.aria-pressed]="confirmPasswordVisible()"
+        (click)="toggleConfirmPasswordVisibility()"
+      >
+        {{ confirmPasswordVisible() ? 'Hide' : 'Show' }}
+      </button>
+      @if (showError('confirmPassword', 'required')) {
+        <mat-error>Please confirm your password.</mat-error>
+      } @else if (showError('confirmPassword', 'passwordMismatch')) {
+        <mat-error>Passwords do not match.</mat-error>
+      }
+    </mat-form-field>
+
+    <button matButton="filled" type="submit" class="auth-form__submit">
+      Create account
+    </button>
+  </form>
+
+  @if (infoMessage()) {
+    <p class="auth-form__message" role="status">{{ infoMessage() }}</p>
+  }
+
+  <p class="auth-form__footer">
+    Already have an account?
+    <a class="page__link" routerLink="/auth/login">Sign in</a>
+  </p>
+</section>

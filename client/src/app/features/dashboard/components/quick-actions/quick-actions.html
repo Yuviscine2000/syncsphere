@@ -1,0 +1,31 @@
+<mat-card appearance="outlined" class="dashboard-card">
+  <h2 id="quick-actions-heading" class="dashboard-card__title">
+    Quick actions
+  </h2>
+  <p class="dashboard-card__subtitle">Jump to the tools you use most.</p>
+
+  <nav class="quick-actions" aria-labelledby="quick-actions-heading">
+    @for (action of actions(); track action.route) {
+      <a class="quick-action" [routerLink]="action.route">
+        <span class="quick-action__header">
+          <span class="quick-action__label">{{ action.label }}</span>
+          <svg
+            class="quick-action__arrow"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </span>
+        <span class="quick-action__description">
+          {{ action.description }}
+        </span>
+      </a>
+    }
+  </nav>
+</mat-card>

@@ -1,0 +1,67 @@
+<section class="page page--auth auth-page">
+  <header class="auth-page__header">
+    <h1 class="page__title">Sign in</h1>
+    <p class="page__text">Welcome back to SyncSphere.</p>
+  </header>
+
+  <form class="auth-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <mat-form-field appearance="outline" class="auth-form__field">
+      <mat-label>Email address</mat-label>
+      <input
+        matInput
+        type="email"
+        formControlName="email"
+        placeholder="you@example.com"
+        autocomplete="email"
+        inputmode="email"
+        required
+      />
+      @if (showError('email', 'required')) {
+        <mat-error>Email address is required.</mat-error>
+      } @else if (showError('email', 'email')) {
+        <mat-error>Enter a valid email address.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="auth-form__field">
+      <mat-label>Password</mat-label>
+      <input
+        matInput
+        [type]="passwordVisible() ? 'text' : 'password'"
+        formControlName="password"
+        placeholder="At least 8 characters"
+        autocomplete="current-password"
+        required
+      />
+      <button
+        matButton="text"
+        matSuffix
+        type="button"
+        class="password-toggle"
+        [attr.aria-label]="passwordVisible() ? 'Hide password' : 'Show password'"
+        [attr.aria-pressed]="passwordVisible()"
+        (click)="togglePasswordVisibility()"
+      >
+        {{ passwordVisible() ? 'Hide' : 'Show' }}
+      </button>
+      @if (showError('password', 'required')) {
+        <mat-error>Password is required.</mat-error>
+      } @else if (showError('password', 'minlength')) {
+        <mat-error>Password must be at least 8 characters.</mat-error>
+      }
+    </mat-form-field>
+
+    <button matButton="filled" type="submit" class="auth-form__submit">
+      Sign in
+    </button>
+  </form>
+
+  @if (infoMessage()) {
+    <p class="auth-form__message" role="status">{{ infoMessage() }}</p>
+  }
+
+  <p class="auth-form__footer">
+    New to SyncSphere?
+    <a class="page__link" routerLink="/auth/register">Create an account</a>
+  </p>
+</section>
