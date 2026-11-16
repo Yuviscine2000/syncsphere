@@ -8,18 +8,38 @@
       <a routerLink="/meetings" routerLinkActive="is-active">Meetings</a>
       <a routerLink="/files" routerLinkActive="is-active">Files</a>
       <a routerLink="/notifications" routerLinkActive="is-active">Notifications</a>
-      <a routerLink="/admin" routerLinkActive="is-active">Admin</a>
+      @if (canAccessAdmin()) {
+        <a routerLink="/admin" routerLinkActive="is-active">Admin</a>
+      }
       <a routerLink="/settings" routerLinkActive="is-active">Settings</a>
     </nav>
 
-    <button
-      matButton="outlined"
-      type="button"
-      class="theme-toggle"
-      (click)="themeService.toggleTheme()"
-    >
-      {{ themeService.isDark() ? 'Switch to Light' : 'Switch to Dark' }}
-    </button>
+    <div class="app-actions">
+      @if (user(); as currentUser) {
+        <span class="app-user" [attr.title]="currentUser.email">
+          {{ currentUser.fullName }}
+        </span>
+      }
+
+      <button
+        matButton="outlined"
+        type="button"
+        class="theme-toggle"
+        (click)="themeService.toggleTheme()"
+      >
+        {{ themeService.isDark() ? 'Switch to Light' : 'Switch to Dark' }}
+      </button>
+
+      <button
+        matButton="text"
+        type="button"
+        class="sign-out"
+        [disabled]="signingOut()"
+        (click)="logout()"
+      >
+        {{ signingOut() ? 'Signing out…' : 'Sign out' }}
+      </button>
+    </div>
   </div>
 </header>
 

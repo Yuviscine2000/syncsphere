@@ -8,7 +8,11 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
+import { AuthService } from '../../../../core/services/auth.service';
+import { authErrorMessage } from '../../../../core/utils/auth-error.util';
+import { safeReturnUrl } from '../../../../core/utils/navigation.util';
 
 type LoginControlName = 'email' | 'password';
 
@@ -26,20 +30,47 @@ type LoginControlName = 'email' | 'password';
 })
 export class LoginPage {
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly returnUrl = safeReturnUrl(
+    this.route.snapshot.queryParamMap.get('returnUrl'),
+  );
 
   readonly form = this.fb.group({
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(8)]],
+    email: [
+      '',
+      [Validators.required, Validators.email, Validators.maxLength(320)],
+    ],
+    password: ['', [Validators.required, Validators.maxLength(1_024)]],
   });
 
   protected readonly passwordVisible = signal(false);
   protected readonly submitted = signal(false);
+  protected readonly isSubmitting = signal(false);
   protected readonly infoMessage = signal('');
+  protected readonly errorMessage = signal('');
 
   constructor() {
+    const registered = this.route.snapshot.queryParamMap.get('registered');
+    const email = this.route.snapshot.queryParamMap.get('email');
+
+    if (registered === '1') {
+      this.infoMessage.set(
+        'Account created successfully. Sign in with your new account.',
+      );
+    }
+
+    if (email !== null && email.length > 0) {
+      this.form.controls.email.setValue(email);
+    }
+
     this.form.valueChanges
       .pipe(takeUntilDestroyed())
-      .subscribe(() => this.infoMessage.set(''));
+      .subscribe(() => {
+        this.infoMessage.set('');
+        this.errorMessage.set('');
+      });
   }
 
   protected togglePasswordVisibility(): void {
@@ -54,14 +85,26 @@ export class LoginPage {
   protected submit(): void {
     this.submitted.set(true);
     this.infoMessage.set('');
+    this.errorMessage.set('');
 
-    if (this.form.invalid) {
+    if (this.form.invalid || this.isSubmitting()) {
       this.form.markAllAsTouched();
       return;
     }
 
-    this.infoMessage.set(
-      'Sign-in is not connected yet. Backend authentication will be available in a later task.',
-    );
+    this.isSubmitting.set(true);
+    const { email, password } = this.form.getRawValue();
+
+    this.authService
+      .login({ email: email.trim(), password })
+      .pipe(finalize(() => this.isSubmitting.set(false)))
+      .subscribe({
+        next: () => {
+          void this.router.navigateByUrl(this.returnUrl);
+        },
+        error: (error: unknown) => {
+          this.errorMessage.set(authErrorMessage(error));
+        },
+      });
   }
 }

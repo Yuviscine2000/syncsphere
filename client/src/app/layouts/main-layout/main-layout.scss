@@ -59,9 +59,29 @@
   border-bottom-color: var(--app-primary);
 }
 
-.theme-toggle {
+.app-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
   margin-left: auto;
+}
+
+.app-user {
+  max-width: 12rem;
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-toggle,
+.sign-out {
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -104,6 +124,10 @@
     padding-right: 1rem;
   }
 
+  .app-actions {
+    order: 2;
+  }
+
   .app-nav {
     order: 3;
     flex-basis: 100%;
@@ -112,5 +136,11 @@
   .app-main__inner {
     padding-top: 1.5rem;
     padding-bottom: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-user {
+    display: none;
   }
 }

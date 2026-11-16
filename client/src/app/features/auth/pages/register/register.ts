@@ -8,7 +8,11 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
+import { AUTH_PASSWORD_MIN_LENGTH } from '../../../../core/constants/auth.constants';
+import { AuthService } from '../../../../core/services/auth.service';
+import { authErrorMessage } from '../../../../core/utils/auth-error.util';
 import { passwordMatchValidator } from '../../../../shared/validators/password-match.validator';
 
 type RegisterControlName =
@@ -31,12 +35,31 @@ type RegisterControlName =
 })
 export class RegisterPage {
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
 
   readonly form = this.fb.group(
     {
-      fullName: ['', [Validators.required, Validators.minLength(2)]],
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8)]],
+      fullName: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(2),
+          Validators.maxLength(120),
+        ],
+      ],
+      email: [
+        '',
+        [Validators.required, Validators.email, Validators.maxLength(320)],
+      ],
+      password: [
+        '',
+        [
+          Validators.required,
+          Validators.minLength(AUTH_PASSWORD_MIN_LENGTH),
+          Validators.maxLength(128),
+        ],
+      ],
       confirmPassword: ['', [Validators.required]],
     },
     { validators: passwordMatchValidator() },
@@ -45,12 +68,14 @@ export class RegisterPage {
   protected readonly passwordVisible = signal(false);
   protected readonly confirmPasswordVisible = signal(false);
   protected readonly submitted = signal(false);
-  protected readonly infoMessage = signal('');
+  protected readonly isSubmitting = signal(false);
+  protected readonly errorMessage = signal('');
+  protected readonly passwordMinLength = AUTH_PASSWORD_MIN_LENGTH;
 
   constructor() {
     this.form.valueChanges
       .pipe(takeUntilDestroyed())
-      .subscribe(() => this.infoMessage.set(''));
+      .subscribe(() => this.errorMessage.set(''));
   }
 
   protected togglePasswordVisibility(): void {
@@ -68,15 +93,35 @@ export class RegisterPage {
 
   protected submit(): void {
     this.submitted.set(true);
-    this.infoMessage.set('');
+    this.errorMessage.set('');
 
-    if (this.form.invalid) {
+    if (this.form.invalid || this.isSubmitting()) {
       this.form.markAllAsTouched();
       return;
     }
 
-    this.infoMessage.set(
-      'Registration is not connected yet. Backend account creation will be available in a later task.',
-    );
+    this.isSubmitting.set(true);
+    const { fullName, email, password } = this.form.getRawValue();
+
+    this.authService
+      .register({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+      })
+      .pipe(finalize(() => this.isSubmitting.set(false)))
+      .subscribe({
+        next: () => {
+          void this.router.navigate(['/auth/login'], {
+            queryParams: {
+              registered: '1',
+              email: email.trim(),
+            },
+          });
+        },
+        error: (error: unknown) => {
+          this.errorMessage.set(authErrorMessage(error));
+        },
+      });
   }
 }

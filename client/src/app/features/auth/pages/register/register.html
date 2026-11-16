@@ -4,7 +4,13 @@
     <p class="page__text">Join SyncSphere to start collaborating.</p>
   </header>
 
-  <form class="auth-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <form
+    class="auth-form"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    [attr.aria-busy]="isSubmitting()"
+    novalidate
+  >
     <mat-form-field appearance="outline" class="auth-form__field">
       <mat-label>Full name</mat-label>
       <input
@@ -19,6 +25,8 @@
         <mat-error>Full name is required.</mat-error>
       } @else if (showError('fullName', 'minlength')) {
         <mat-error>Full name must be at least 2 characters.</mat-error>
+      } @else if (showError('fullName', 'maxlength')) {
+        <mat-error>Full name must be at most 120 characters.</mat-error>
       }
     </mat-form-field>
 
@@ -37,6 +45,8 @@
         <mat-error>Email address is required.</mat-error>
       } @else if (showError('email', 'email')) {
         <mat-error>Enter a valid email address.</mat-error>
+      } @else if (showError('email', 'maxlength')) {
+        <mat-error>Email address is too long.</mat-error>
       }
     </mat-form-field>
 
@@ -46,7 +56,7 @@
         matInput
         [type]="passwordVisible() ? 'text' : 'password'"
         formControlName="password"
-        placeholder="At least 8 characters"
+        [placeholder]="'At least ' + passwordMinLength + ' characters'"
         autocomplete="new-password"
         required
       />
@@ -64,7 +74,9 @@
       @if (showError('password', 'required')) {
         <mat-error>Password is required.</mat-error>
       } @else if (showError('password', 'minlength')) {
-        <mat-error>Password must be at least 8 characters.</mat-error>
+        <mat-error>Password must be at least {{ passwordMinLength }} characters.</mat-error>
+      } @else if (showError('password', 'maxlength')) {
+        <mat-error>Password must be at most 128 characters.</mat-error>
       }
     </mat-form-field>
 
@@ -98,13 +110,20 @@
       }
     </mat-form-field>
 
-    <button matButton="filled" type="submit" class="auth-form__submit">
-      Create account
+    <button
+      matButton="filled"
+      type="submit"
+      class="auth-form__submit"
+      [disabled]="isSubmitting()"
+    >
+      {{ isSubmitting() ? 'Creating account…' : 'Create account' }}
     </button>
   </form>
 
-  @if (infoMessage()) {
-    <p class="auth-form__message" role="status">{{ infoMessage() }}</p>
+  @if (errorMessage()) {
+    <p class="auth-form__message auth-form__message--error" role="alert">
+      {{ errorMessage() }}
+    </p>
   }
 
   <p class="auth-form__footer">

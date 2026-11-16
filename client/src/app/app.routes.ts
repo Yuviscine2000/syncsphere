@@ -1,4 +1,8 @@
 import { Routes } from '@angular/router';
+import { AUTH_PERMISSIONS } from './core/constants/auth.constants';
+import { authGuard } from './core/guards/auth.guard';
+import { guestGuard } from './core/guards/guest.guard';
+import { permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
   {
@@ -8,11 +12,13 @@ export const routes: Routes = [
   },
   {
     path: 'auth',
+    canActivate: [guestGuard],
     loadChildren: () =>
       import('./features/auth/auth.routes').then((m) => m.AUTH_ROUTES),
   },
   {
     path: '',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./layouts/main-layout/main-layout').then((m) => m.MainLayout),
     children: [
@@ -51,6 +57,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin',
+        canActivate: [permissionGuard(AUTH_PERMISSIONS.adminAccess)],
         loadChildren: () =>
           import('./features/admin/admin.routes').then((m) => m.ADMIN_ROUTES),
       },

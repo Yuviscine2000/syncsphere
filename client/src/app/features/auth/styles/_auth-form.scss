@@ -28,6 +28,12 @@
   line-height: 1.5;
 }
 
+.auth-form__message--error {
+  border-color: color-mix(in srgb, var(--mat-sys-error) 45%, var(--app-border));
+  background-color: color-mix(in srgb, var(--mat-sys-error) 10%, transparent);
+  color: var(--mat-sys-error);
+}
+
 .auth-form__footer {
   margin: 1.5rem 0 0;
   color: var(--app-text-muted);

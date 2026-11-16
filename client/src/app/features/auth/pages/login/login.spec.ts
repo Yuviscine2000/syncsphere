@@ -1,17 +1,46 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import {
+  ActivatedRoute,
+  Router,
+  convertToParamMap,
+  provideRouter,
+} from '@angular/router';
+import { Subject, throwError } from 'rxjs';
+import { AuthService } from '../../../../core/services/auth.service';
+import {
+  TEST_USER,
+  authErrorEnvelope,
+  createAuthServiceMock,
+} from '../../../../../testing/auth-test-helpers';
 import { LoginPage } from './login';
 
 describe('LoginPage', () => {
   let fixture: ComponentFixture<LoginPage>;
   let component: LoginPage;
+  let authMock: ReturnType<typeof createAuthServiceMock>;
+  let router: Router;
 
   beforeEach(async () => {
+    authMock = createAuthServiceMock();
+
     await TestBed.configureTestingModule({
       imports: [LoginPage],
-      providers: [provideRouter([])],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: authMock },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: { queryParamMap: convertToParamMap({}) },
+          },
+        },
+      ],
     }).compileComponents();
+
+    router = TestBed.inject(Router);
+    vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
 
     fixture = TestBed.createComponent(LoginPage);
     component = fixture.componentInstance;
@@ -27,6 +56,13 @@ describe('LoginPage', () => {
 
   function query<T extends Element>(selector: string): T {
     return fixture.nativeElement.querySelector(selector) as T;
+  }
+
+  function setValidValues(): void {
+    component.form.setValue({
+      email: 'jane@example.com',
+      password: 'password123',
+    });
   }
 
   it('creates the login form with email and password controls', () => {
@@ -47,12 +83,6 @@ describe('LoginPage', () => {
     expect(component.form.controls.email.hasError('email')).toBe(true);
   });
 
-  it('requires a password of at least eight characters', () => {
-    component.form.controls.password.setValue('short');
-
-    expect(component.form.controls.password.hasError('minlength')).toBe(true);
-  });
-
   it('shows errors and does not submit when the form is invalid', () => {
     submitForm();
 
@@ -60,10 +90,10 @@ describe('LoginPage', () => {
     expect(
       fixture.nativeElement.querySelectorAll('mat-error').length,
     ).toBeGreaterThan(0);
-    expect(query('.auth-form__message')).toBeNull();
+    expect(authMock.login).not.toHaveBeenCalled();
   });
 
-  it('shows an informational message on valid submission', () => {
+  it('submits valid credentials and navigates to the dashboard', () => {
     component.form.setValue({
       email: 'jane@example.com',
       password: 'password123',
@@ -71,23 +101,72 @@ describe('LoginPage', () => {
 
     submitForm();
 
-    const message = query<HTMLElement>('.auth-form__message');
-    expect(message.textContent).toContain('Backend authentication');
-    expect(message.getAttribute('role')).toBe('status');
-  });
-
-  it('clears the informational message when the form is edited', () => {
-    component.form.setValue({
+    expect(authMock.login).toHaveBeenCalledWith({
       email: 'jane@example.com',
       password: 'password123',
     });
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('shows a safe error for invalid credentials', () => {
+    authMock.login.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 401,
+            error: authErrorEnvelope(
+              'INVALID_CREDENTIALS',
+              'Email or password is incorrect.',
+            ),
+          }),
+      ),
+    );
+    setValidValues();
+
     submitForm();
-    expect(query('.auth-form__message')).not.toBeNull();
+
+    const message = query<HTMLElement>('.auth-form__message--error');
+    expect(message.textContent).toContain('Email or password is incorrect.');
+    expect(message.getAttribute('role')).toBe('alert');
+  });
+
+  it('disables submission while the login request is pending', () => {
+    const pending = new Subject<typeof TEST_USER>();
+    authMock.login.mockReturnValue(pending.asObservable());
+    setValidValues();
+
+    submitForm();
+
+    const button = query<HTMLButtonElement>('button[type="submit"]');
+    expect(button.disabled).toBe(true);
+    expect(button.textContent).toContain('Signing in');
+
+    pending.next(TEST_USER);
+    pending.complete();
+    fixture.detectChanges();
+
+    expect(button.disabled).toBe(false);
+    expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('clears the error message when the form is edited', () => {
+    authMock.login.mockReturnValue(
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 401,
+            error: authErrorEnvelope('INVALID_CREDENTIALS', 'Invalid.'),
+          }),
+      ),
+    );
+    setValidValues();
+    submitForm();
+    expect(query('.auth-form__message--error')).not.toBeNull();
 
     component.form.controls.email.setValue('jane.doe@example.com');
     fixture.detectChanges();
 
-    expect(query('.auth-form__message')).toBeNull();
+    expect(query('.auth-form__message--error')).toBeNull();
   });
 
   it('toggles password visibility', () => {

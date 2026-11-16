@@ -4,7 +4,13 @@
     <p class="page__text">Welcome back to SyncSphere.</p>
   </header>
 
-  <form class="auth-form" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+  <form
+    class="auth-form"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    [attr.aria-busy]="isSubmitting()"
+    novalidate
+  >
     <mat-form-field appearance="outline" class="auth-form__field">
       <mat-label>Email address</mat-label>
       <input
@@ -20,6 +26,8 @@
         <mat-error>Email address is required.</mat-error>
       } @else if (showError('email', 'email')) {
         <mat-error>Enter a valid email address.</mat-error>
+      } @else if (showError('email', 'maxlength')) {
+        <mat-error>Email address is too long.</mat-error>
       }
     </mat-form-field>
 
@@ -29,7 +37,7 @@
         matInput
         [type]="passwordVisible() ? 'text' : 'password'"
         formControlName="password"
-        placeholder="At least 8 characters"
+        placeholder="Enter your password"
         autocomplete="current-password"
         required
       />
@@ -46,17 +54,26 @@
       </button>
       @if (showError('password', 'required')) {
         <mat-error>Password is required.</mat-error>
-      } @else if (showError('password', 'minlength')) {
-        <mat-error>Password must be at least 8 characters.</mat-error>
+      } @else if (showError('password', 'maxlength')) {
+        <mat-error>Password is too long.</mat-error>
       }
     </mat-form-field>
 
-    <button matButton="filled" type="submit" class="auth-form__submit">
-      Sign in
+    <button
+      matButton="filled"
+      type="submit"
+      class="auth-form__submit"
+      [disabled]="isSubmitting()"
+    >
+      {{ isSubmitting() ? 'Signing in…' : 'Sign in' }}
     </button>
   </form>
 
-  @if (infoMessage()) {
+  @if (errorMessage()) {
+    <p class="auth-form__message auth-form__message--error" role="alert">
+      {{ errorMessage() }}
+    </p>
+  } @else if (infoMessage()) {
     <p class="auth-form__message" role="status">{{ infoMessage() }}</p>
   }
 

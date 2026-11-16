@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Test coverage
+coverage/
+
+# Local environment files (keep the example)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
