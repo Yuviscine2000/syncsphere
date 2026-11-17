@@ -3,6 +3,7 @@ import { DATABASE_STATUS } from '../../constants/database.constants.js';
 
 const BASE_RECONNECT_DELAY_MS = 100;
 const MAX_RECONNECT_DELAY_MS = 3_000;
+const QUIT_TIMEOUT_MS = 2_000;
 
 /**
  * Creates a bounded exponential backoff strategy. Returning an Error tells
@@ -81,10 +82,28 @@ export async function closeRedisClient(client) {
     return;
   }
 
-  if (client.isOpen === true) {
-    await client.quit();
+  if (client.isOpen !== true || client.isReady === false) {
+    client.destroy?.();
     return;
   }
 
-  client.destroy?.();
+  let timeout;
+
+  try {
+    await Promise.race([
+      client.quit(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error('Redis quit timed out')),
+          QUIT_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } catch {
+    client.destroy?.();
+  } finally {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+  }
 }

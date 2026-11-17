@@ -1,9 +1,9 @@
-import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import {
   ALLOWED_ORIGIN,
   createTestApp,
 } from './helpers/test-app.js';
+import { request } from './helpers/test-request.js';
 
 describe('security middleware', () => {
   it('applies Helmet headers and hides Express', async () => {

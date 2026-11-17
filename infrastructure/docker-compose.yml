@@ -1,0 +1,100 @@
+name: ${COMPOSE_PROJECT_NAME:-syncsphere}
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: syncsphere-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in infrastructure/.env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-syncsphere}
+      MYSQL_USER: ${MYSQL_USER:-syncsphere}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in infrastructure/.env}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - syncsphere-data
+
+  mongodb:
+    image: mongo:7.0
+    container_name: syncsphere-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:?Set MONGODB_ROOT_USERNAME in infrastructure/.env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:?Set MONGODB_ROOT_PASSWORD in infrastructure/.env}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-syncsphere}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-syncsphere}
+      MONGODB_APP_USERNAME: ${MONGODB_APP_USERNAME:?Set MONGODB_APP_USERNAME in infrastructure/.env}
+      MONGODB_APP_PASSWORD: ${MONGODB_APP_PASSWORD:?Set MONGODB_APP_PASSWORD in infrastructure/.env}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "127.0.0.1:${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --host 127.0.0.1 --username \"$$MONGO_INITDB_ROOT_USERNAME\" --password \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand({ ping: 1 }).ok\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - syncsphere-data
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: syncsphere-redis
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD:?Set REDIS_PASSWORD in infrastructure/.env}",
+      ]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in infrastructure/.env}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      - syncsphere-data
+
+volumes:
+  mysql_data:
+    name: syncsphere_mysql_data
+  mongodb_data:
+    name: syncsphere_mongodb_data
+  redis_data:
+    name: syncsphere_redis_data
+
+networks:
+  syncsphere-data:
+    name: syncsphere-data
+    driver: bridge

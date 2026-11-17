@@ -16,7 +16,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.js",
+    "test:integration:watch": "vitest --config vitest.integration.config.js"
   },
   "dependencies": {
     "argon2": "0.45.2",

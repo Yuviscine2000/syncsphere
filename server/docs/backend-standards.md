@@ -109,7 +109,8 @@ Authentication configuration is validated at startup and fails fast on invalid o
 | `AUTH_REFRESH_TOKEN_TTL_SECONDS` | No | `604800` | `300`-`2592000` seconds |
 | `AUTH_REFRESH_COOKIE_NAME` | No | `syncsphere_refresh` | Letters, numbers, hyphens, underscores only |
 | `AUTH_CSRF_COOKIE_NAME` | No | `syncsphere_csrf` | Letters, numbers, hyphens, underscores only |
-| `AUTH_REFRESH_COOKIE_PATH` | No | `${API_PREFIX}/v1/auth` | Absolute URL path |
+| `AUTH_REFRESH_COOKIE_PATH` | No | `${API_PREFIX}/v1/auth` | Absolute URL path; refresh cookie stays scoped to auth endpoints |
+| `AUTH_CSRF_COOKIE_PATH` | No | `/` | Absolute URL path; must be readable by SPA routes for startup restoration |
 | `AUTH_REFRESH_COOKIE_DOMAIN` | No | - | Optional cookie domain |
 | `AUTH_REFRESH_COOKIE_SAME_SITE` | No | `strict` | `strict`, `lax`, or `none` |
 | `AUTH_REFRESH_COOKIE_SECURE` | Production: yes | `true` in production, `false` otherwise | Required for `SameSite=None` |
@@ -123,7 +124,7 @@ Authentication configuration is validated at startup and fails fast on invalid o
 | `AUTH_REGISTER_RATE_LIMIT_MAX` | No | `5` | Per client per window |
 | `AUTH_REFRESH_RATE_LIMIT_MAX` | No | `60` | Shared by refresh and logout |
 
-Production requires secure refresh cookies. `SameSite=None` also requires secure cookies. Secrets must be supplied by the deployment environment; `.env.example` contains placeholders only.
+Production requires secure refresh cookies. `SameSite=None` also requires secure cookies. The refresh cookie remains `HttpOnly` and scoped to the auth path; the signed CSRF cookie is readable by the SPA and defaults to path `/` so startup restoration does not depend on tab-scoped `sessionStorage`. Secrets must be supplied by the deployment environment; `.env.example` contains placeholders only.
 
 ## Database Configuration
 
@@ -227,6 +228,9 @@ Rules:
 
 - Refresh and logout require both the signed CSRF cookie and matching `X-CSRF-Token` header.
 - The CSRF token is an HMAC over a random nonce and the session family ID, so it is session-bound and cannot be forged through a sibling domain.
+- The CSRF cookie is intentionally readable (`HttpOnly` disabled) and defaults to path `/`; the refresh cookie remains `HttpOnly` and scoped to `${API_PREFIX}/v1/auth`.
+- Changing the CSRF cookie path does not change double-submit validation or session binding; both cookies share the configured `SameSite`, `Secure`, and optional domain settings.
+- During the path migration, auth responses clear any CSRF cookie left at the legacy refresh path. Duplicate CSRF cookie names are all read so a stale legacy-path value cannot mask the current token; the auth service still verifies the header token's signature and session binding.
 - State-changing auth routes validate `Origin`/`Referer` against the CORS allowlist and reject `Sec-Fetch-Site: cross-site`.
 - Missing origin metadata is allowed for non-browser clients, but cookie-authenticated operations still require CSRF validation.
 - Login and registration are rate limited separately from refresh/logout.

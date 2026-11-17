@@ -176,6 +176,24 @@ describe('managed database clients', () => {
     expect(client.getStatus()).toBe(DATABASE_STATUS.CLOSED);
   });
 
+  it('destroys a reconnecting Redis client without waiting for quit', async () => {
+    const driver = createRedisDriver({
+      isReady: false,
+      quit: vi.fn(() => new Promise(() => {})),
+    });
+    const { logger } = createRecordingLogger();
+    const client = createRedisClient({
+      config: REDIS_CONFIG,
+      logger,
+      createClient: () => driver,
+    });
+
+    await expect(client.initialize()).resolves.toBe(DATABASE_STATUS.CONNECTED);
+    await expect(client.close()).resolves.toBeUndefined();
+    expect(driver.quit).not.toHaveBeenCalled();
+    expect(driver.destroy).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects a Redis connection without a PONG response', async () => {
     const driver = createRedisDriver({
       ping: vi.fn().mockResolvedValue('NOT_PONG'),

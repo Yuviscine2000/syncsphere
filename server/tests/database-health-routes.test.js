@@ -1,7 +1,7 @@
-import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { DATABASE_STATUS } from '../src/constants/database.constants.js';
 import { createTestApp } from './helpers/test-app.js';
+import { request } from './helpers/test-request.js';
 
 const READY_PAYLOAD = Object.freeze({
   status: 'ready',

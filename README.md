@@ -15,6 +15,10 @@ scaffolded yet.
 The fixed architecture is documented in
 [docs/architecture/architecture.md](docs/architecture/architecture.md).
 
+Local MySQL, MongoDB, and Redis setup, connection settings, and integration
+test instructions are documented in
+[docs/infrastructure/database-services.md](docs/infrastructure/database-services.md).
+
 Highlights:
 
 - **Frontend:** Angular 22 standalone, TypeScript, SCSS, Angular Material,

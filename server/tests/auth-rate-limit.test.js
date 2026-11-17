@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { ConfigurationError } from '../src/config/configuration-error.js';
 import {
@@ -11,6 +10,7 @@ import {
   createTestApp,
   createTestConfig,
 } from './helpers/test-app.js';
+import { request } from './helpers/test-request.js';
 
 function createRedisDriver({ fail = false } = {}) {
   const counters = new Map();

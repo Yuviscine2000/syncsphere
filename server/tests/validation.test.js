@@ -1,11 +1,11 @@
 import express from 'express';
-import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { errorHandlerMiddleware } from '../src/middleware/error-handler.middleware.js';
 import { requestIdMiddleware } from '../src/middleware/request-id.middleware.js';
 import { validateRequest } from '../src/middleware/validate-request.middleware.js';
 import { createRecordingLogger } from './helpers/test-app.js';
+import { request } from './helpers/test-request.js';
 
 function createValidationApp() {
   const { logger } = createRecordingLogger();

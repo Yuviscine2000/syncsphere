@@ -1,5 +1,4 @@
 import express from 'express';
-import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { errorHandlerMiddleware } from '../src/middleware/error-handler.middleware.js';
 import { requestIdMiddleware } from '../src/middleware/request-id.middleware.js';
@@ -9,6 +8,7 @@ import {
   VALID_CORRELATION_ID,
   VALID_REQUEST_ID,
 } from './helpers/test-app.js';
+import { request } from './helpers/test-request.js';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

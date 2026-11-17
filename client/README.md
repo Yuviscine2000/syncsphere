@@ -21,7 +21,7 @@ The Angular client integrates with the Express auth API at `http://localhost:300
 - `authTokenInterceptor` adds `Authorization: Bearer <token>` and `withCredentials` to API requests, except login, register, and refresh.
 - `csrfInterceptor` adds `X-CSRF-Token` to refresh and logout requests.
 - `refreshInterceptor` handles one coordinated refresh for concurrent `401` responses and retries each request once.
-- `restoreSession()` runs during application startup and uses the refresh cookie to restore the session. The CSRF token is mirrored in `sessionStorage` under `syncsphere.csrf` because the backend CSRF cookie path (`/api/v1/auth`) is not visible to SPA routes.
+- `restoreSession()` runs during application startup and uses the refresh cookie to restore the session. The backend sets the signed, readable CSRF cookie at path `/`, so Angular can read it from SPA routes. `sessionStorage` is only a fallback copy; startup restoration does not depend on it.
 - `authGuard`, `guestGuard`, and `permissionGuard` protect routes. Admin navigation is hidden without `admin:access`, but backend authorization remains authoritative.
 - Login and registration use the backend error envelope and display safe, mapped messages. Registration navigates to login with `registered=1` and the registered email.
 

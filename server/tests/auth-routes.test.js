@@ -1,4 +1,3 @@
-import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import { AppError } from '../src/errors/app-error.js';
 import { ERROR_CODES } from '../src/errors/error-codes.js';
@@ -9,6 +8,7 @@ import {
   createTestApp,
   createTestConfig,
 } from './helpers/test-app.js';
+import { request } from './helpers/test-request.js';
 
 const SESSION_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_SESSION_ID = '22222222-2222-4222-8222-222222222222';
@@ -82,6 +82,22 @@ function createAuthHarness({ configOverrides = {}, authOverrides = {} } = {}) {
   const { app, logger } = createTestApp({ configOverrides, authService });
 
   return { app, config, logger, csrfToken, authService, authContext };
+}
+
+function cookiePath(cookie) {
+  return /;\s*Path=([^;]*)/i.exec(cookie)?.[1];
+}
+
+function findSetCookies(response, name, path) {
+  return response.headers['set-cookie'].filter(
+    (cookie) =>
+      cookie.startsWith(`${name}=`) &&
+      (path === undefined || cookiePath(cookie) === path),
+  );
+}
+
+function findSetCookie(response, name, path) {
+  return findSetCookies(response, name, path)[0];
 }
 
 function loginRequest(app, body = {}) {
@@ -179,12 +195,47 @@ describe('authentication HTTP routes', () => {
       expect.objectContaining({ requestId: expect.any(String) }),
     );
 
-    const setCookie = response.headers['set-cookie'].join('\n');
-    expect(setCookie).toContain('syncsphere_refresh=refresh-token-value');
-    expect(setCookie).toContain('syncsphere_csrf=');
-    expect(setCookie).toContain('HttpOnly');
-    expect(setCookie).toContain('Secure');
-    expect(setCookie).toContain('SameSite=Strict');
+    const refreshCookie = findSetCookie(
+      response,
+      'syncsphere_refresh',
+      '/api/v1/auth',
+    );
+    const csrfCookie = findSetCookie(response, 'syncsphere_csrf', '/');
+    const legacyCsrfCookie = findSetCookie(
+      response,
+      'syncsphere_csrf',
+      '/api/v1/auth',
+    );
+
+    expect(refreshCookie).toContain('syncsphere_refresh=refresh-token-value');
+    expect(refreshCookie).toContain('HttpOnly');
+    expect(refreshCookie).toContain('Secure');
+    expect(refreshCookie).toContain('SameSite=Strict');
+
+    expect(csrfCookie).toContain(
+      `syncsphere_csrf=${response.body.data.csrfToken}`,
+    );
+    expect(csrfCookie).not.toContain('HttpOnly');
+    expect(csrfCookie).toContain('Secure');
+    expect(csrfCookie).toContain('SameSite=Strict');
+    expect(legacyCsrfCookie).toContain('syncsphere_csrf=;');
+  });
+
+  it('uses an explicitly configured CSRF cookie path', async () => {
+    const { app } = createAuthHarness({
+      configOverrides: { AUTH_CSRF_COOKIE_PATH: '/app' },
+    });
+    const response = await loginRequest(app);
+    const csrfCookie = findSetCookie(response, 'syncsphere_csrf', '/app');
+    const legacyCsrfCookie = findSetCookie(
+      response,
+      'syncsphere_csrf',
+      '/api/v1/auth',
+    );
+
+    expect(response.status).toBe(200);
+    expect(csrfCookie).toContain('Path=/app');
+    expect(legacyCsrfCookie).toContain('syncsphere_csrf=;');
   });
 
   it('ignores privileged roles supplied by the client', async () => {
@@ -240,6 +291,49 @@ describe('authentication HTTP routes', () => {
     expect(success.body.data).not.toHaveProperty('refreshToken');
   });
 
+  it('selects the matching CSRF value when duplicate cookie names include a stale legacy token', async () => {
+    const { app, authService, csrfToken } = createAuthHarness();
+    const response = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Origin', ALLOWED_ORIGIN)
+      .set(
+        'Cookie',
+        `syncsphere_refresh=${REFRESH_TOKEN}; syncsphere_csrf=stale-legacy-token; syncsphere_csrf=${csrfToken}`,
+      )
+      .set('X-CSRF-Token', csrfToken);
+
+    expect(response.status).toBe(200);
+    expect(authService.refresh).toHaveBeenCalledWith(
+      { refreshToken: REFRESH_TOKEN, csrfToken },
+      expect.objectContaining({ requestId: expect.any(String) }),
+    );
+  });
+
+  it('refreshes cookies with current paths and clears the legacy CSRF cookie', async () => {
+    const { app, csrfToken } = createAuthHarness();
+    const response = await refreshRequest(app, { csrfToken });
+    const refreshCookie = findSetCookie(
+      response,
+      'syncsphere_refresh',
+      '/api/v1/auth',
+    );
+    const csrfCookie = findSetCookie(response, 'syncsphere_csrf', '/');
+    const legacyCsrfCookie = findSetCookie(
+      response,
+      'syncsphere_csrf',
+      '/api/v1/auth',
+    );
+
+    expect(response.status).toBe(200);
+    expect(refreshCookie).toContain(
+      `syncsphere_refresh=${NEW_REFRESH_TOKEN}`,
+    );
+    expect(refreshCookie).toContain('HttpOnly');
+    expect(csrfCookie).toContain(`syncsphere_csrf=${csrfToken}`);
+    expect(csrfCookie).not.toContain('HttpOnly');
+    expect(legacyCsrfCookie).toContain('syncsphere_csrf=;');
+  });
+
   it('logs out and clears both auth cookies', async () => {
     const { app, authService, csrfToken } = createAuthHarness();
     const response = await request(app)
@@ -257,9 +351,22 @@ describe('authentication HTTP routes', () => {
       { refreshToken: REFRESH_TOKEN, csrfToken },
       expect.any(Object),
     );
-    expect(response.headers['set-cookie'].join('\n')).toContain(
-      'syncsphere_refresh=;',
+    const refreshCookie = findSetCookie(
+      response,
+      'syncsphere_refresh',
+      '/api/v1/auth',
     );
+    const csrfCookie = findSetCookie(response, 'syncsphere_csrf', '/');
+    const legacyCsrfCookie = findSetCookie(
+      response,
+      'syncsphere_csrf',
+      '/api/v1/auth',
+    );
+
+    expect(refreshCookie).toContain('syncsphere_refresh=;');
+    expect(refreshCookie).toContain('HttpOnly');
+    expect(csrfCookie).toContain('syncsphere_csrf=;');
+    expect(legacyCsrfCookie).toContain('syncsphere_csrf=;');
   });
 
   it('requires a valid bearer token for protected routes', async () => {

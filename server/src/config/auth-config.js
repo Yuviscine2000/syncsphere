@@ -27,6 +27,7 @@ import {
   DEFAULT_AUTH_COOKIE_PATH,
   DEFAULT_AUTH_COOKIE_SAME_SITE,
   DEFAULT_AUTH_CSRF_COOKIE_NAME,
+  DEFAULT_AUTH_CSRF_COOKIE_PATH,
   DEFAULT_AUTH_LOGIN_RATE_LIMIT_MAX,
   DEFAULT_AUTH_PASSWORD_MAX_LENGTH,
   DEFAULT_AUTH_PASSWORD_MIN_LENGTH,
@@ -108,6 +109,15 @@ const envSchema = z.object({
   AUTH_REFRESH_COOKIE_NAME: cookieName.default(DEFAULT_AUTH_REFRESH_COOKIE_NAME),
   AUTH_CSRF_COOKIE_NAME: cookieName.default(DEFAULT_AUTH_CSRF_COOKIE_NAME),
   AUTH_REFRESH_COOKIE_PATH: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .min(1)
+      .max(500)
+      .regex(cookiePathPattern, 'must be an absolute URL path')
+      .optional(),
+  ),
+  AUTH_CSRF_COOKIE_PATH: z.preprocess(
     emptyToUndefined,
     z
       .string()
@@ -274,6 +284,7 @@ export function parseAuthConfig(
     csrf: {
       secret: data.AUTH_CSRF_SECRET,
       cookieName: data.AUTH_CSRF_COOKIE_NAME,
+      path: data.AUTH_CSRF_COOKIE_PATH ?? DEFAULT_AUTH_CSRF_COOKIE_PATH,
     },
     cookie: {
       refreshName: data.AUTH_REFRESH_COOKIE_NAME,

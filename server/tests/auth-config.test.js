@@ -16,9 +16,28 @@ describe('authentication configuration', () => {
     expect(config.auth.accessToken.ttlSeconds).toBe(900);
     expect(config.auth.refreshToken.ttlSeconds).toBe(604_800);
     expect(config.auth.cookie.path).toBe('/api/v1/auth');
+    expect(config.auth.csrf.path).toBe('/');
     expect(config.auth.cookie.secure).toBe(false);
     expect(config.auth.password.minLength).toBe(12);
     expect(config.auth.rateLimit.loginMax).toBe(1_000);
+  });
+
+  it('allows independent refresh and readable CSRF cookie paths', () => {
+    const config = loadConfig(
+      authEnv({
+        AUTH_REFRESH_COOKIE_PATH: '/api/v1/auth',
+        AUTH_CSRF_COOKIE_PATH: '/',
+      }),
+    );
+
+    expect(config.auth.cookie.path).toBe('/api/v1/auth');
+    expect(config.auth.csrf.path).toBe('/');
+  });
+
+  it('rejects invalid CSRF cookie paths', () => {
+    expect(() =>
+      loadConfig(authEnv({ AUTH_CSRF_COOKIE_PATH: 'not-absolute' })),
+    ).toThrow(ConfigurationError);
   });
 
   it('requires both independent auth secrets', () => {

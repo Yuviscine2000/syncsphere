@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.js'],
+    exclude: ['tests/integration/**'],
     restoreMocks: true,
     clearMocks: true,
   },
