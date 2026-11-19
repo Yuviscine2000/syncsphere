@@ -95,6 +95,12 @@ in that ignored file and must never be copied into documentation, examples, or
 shell history. All `server` npm scripts load `server/.env` automatically, so no
 shell overrides are needed for local startup, migrations, or integration tests.
 
+Switching to the Docker Compose stack requires replacing these direct-service
+values with the authenticated Compose values from `infrastructure/.env`,
+including MongoDB `authSource` and the Redis password. See
+[Local Database Services](../infrastructure/database-services.md) for the
+prerequisites and safe migration steps.
+
 ### 3. Run migrations and start the API
 
 ```powershell

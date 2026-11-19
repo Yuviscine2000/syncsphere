@@ -16,6 +16,37 @@ All published ports bind to `127.0.0.1` only. The services share the
 `syncsphere-data` bridge network and use health checks before they are
 considered ready.
 
+## Docker Desktop Prerequisites
+
+Compose verification requires Docker Desktop for Windows with the Linux
+container engine and Compose v2. These are manual prerequisites; the repository
+does not install Docker automatically.
+
+1. Install Docker Desktop for Windows from the official Docker documentation:
+   <https://docs.docker.com/desktop/install/windows-install/>.
+2. Install or enable WSL2 and at least one Linux distribution. On the current
+   host the WSL2 kernel is present, but no distributions are installed. If
+   needed, run this in an elevated PowerShell, then reboot:
+
+   ```powershell
+   wsl --install -d Ubuntu
+   ```
+
+3. Start Docker Desktop from the Start menu. Confirm Linux container mode is
+   selected in the Docker Desktop tray menu. Do not switch to Windows
+   containers for this stack.
+4. Verify the installation:
+
+   ```powershell
+   docker --version
+   docker compose version
+   docker info --format "{{.OSType}}"
+   ```
+
+   The last command should report `linux`. If any command is missing or fails,
+   Docker Desktop is not installed, not running, or not in Linux container
+   mode.
+
 ## Application Environment
 
 The API reads `server/.env` through `--env-file-if-exists` in the npm scripts.
@@ -57,13 +88,26 @@ and uses its own credentials from `infrastructure/.env`.
 2. Replace every `replace-with-*` placeholder in `infrastructure/.env`.
    Use strong local-only passwords. Do not commit `infrastructure/.env`.
 
-3. Start the services from the repository root:
+3. Check the host ports selected in `infrastructure/.env` before starting:
+
+   ```powershell
+   Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+     Where-Object { $_.LocalPort -in 3306,27017,6379 }
+   ```
+
+   If a port is already in use by a service you do not own, do not stop it.
+   Choose a free host port in `infrastructure/.env` and update the matching
+   value in `server/.env`. The current workstation has `3306` and `27017`
+   occupied by unknown local services, and the Task 14 services occupy
+   `3307`, `37017`, and `16379`.
+
+4. Start the services from the repository root:
 
    ```powershell
    docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml up -d
    ```
 
-4. Wait for all health checks to pass:
+5. Wait for all health checks to pass:
 
    ```powershell
    docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml ps
@@ -90,6 +134,16 @@ docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.y
 docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml down
 ```
 
+Command differences:
+
+- `docker compose stop` stops containers but keeps them present. Volumes and
+  container metadata remain, and `docker compose up -d` resumes the same
+  containers.
+- `docker compose down` stops and removes the containers and Compose network,
+  but preserves named volumes and database data.
+- `docker compose down -v` also removes the named volumes. This permanently
+  deletes local database data and must not be used casually.
+
 To reset local data, remove the named volumes explicitly. This is destructive
 and should only be used for disposable local environments:
 
@@ -100,7 +154,11 @@ docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.y
 ## Connection Strings
 
 Use the values from `infrastructure/.env` when starting the backend or running
-integration tests.
+integration tests. When switching from the active Task 14 direct-service setup,
+replace the no-auth MongoDB and Redis URLs in `server/.env` with the authenticated
+Compose forms below, and align the host ports and MySQL user/password with
+`infrastructure/.env`. Do not keep the direct-service values after Compose is
+started.
 
 MySQL:
 
@@ -197,6 +255,25 @@ Local Compose settings are not production settings:
 - Do not use Compose root passwords or local application passwords in
   production.
 
+## Production Readiness Review
+
+Passing local Docker Compose checks is not production readiness. Before any
+production deployment, review:
+
+- independent secrets supplied by a secret manager, not local `.env` files;
+- authenticated MySQL, MongoDB, and Redis connections;
+- TLS requirements for database and Redis traffic;
+- least-privilege database users with only the required privileges;
+- secure refresh cookies, explicit HTTPS CORS origins, and secure CSRF settings;
+- restricted network exposure with no public database ports;
+- persistent storage sizing, backup schedules, restore tests, and retention;
+- HA and Primary DC / DR compatibility for the Phase 1 architecture;
+- monitoring, alerting, log retention, and incident response;
+- capacity planning and failover runbooks.
+
+No production deployment or production-readiness claim is made by the local
+Compose workflow.
+
 ## Safety Rules
 
 - Never run destructive database commands against shared or production data.
@@ -204,6 +281,25 @@ Local Compose settings are not production settings:
 - Keep database ports bound to `127.0.0.1` for local development.
 - Do not remove named volumes unless you intend to delete local data.
 - Do not treat the local Compose passwords as production secrets.
+
+## Docker Troubleshooting
+
+- `docker: command not found`: Docker Desktop is not installed or its CLI is not
+  on `PATH`. Install and start Docker Desktop, then open a new terminal.
+- `Cannot connect to the Docker daemon`: start Docker Desktop and wait until the
+  engine is running. Verify with `docker info`.
+- `OSType` is not `linux`: switch Docker Desktop to Linux containers. Do not run
+  this stack in Windows container mode.
+- WSL2 kernel present but no distributions: install a Linux distribution with
+  `wsl --install -d <distribution>` from an elevated PowerShell and reboot.
+- Port already allocated: identify the owning process with
+  `Get-NetTCPConnection -State Listen -LocalPort <port>`. If it is not yours,
+  choose a different host port in `infrastructure/.env` and mirror it in
+  `server/.env`. Never stop unknown services automatically.
+- Authentication failures after Compose starts: confirm the app credentials in
+  `server/.env` match `infrastructure/.env`, including the MongoDB
+  `authSource` and the Redis password in the URL. Note that the MongoDB init
+  script creates the app user only when the MongoDB volume is first initialized.
 
 ## Local Windows Verification Note
 
