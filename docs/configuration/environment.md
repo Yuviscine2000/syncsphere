@@ -19,8 +19,10 @@ without a `.env` file when the required variables are supplied by the shell or
 deployment platform. Shell environment variables take precedence over values in
 `.env`.
 
-Integration tests use `vitest` directly and do not load `.env`. Set the
-database variables in the shell before running `npm run test:integration`.
+Integration tests use `vitest` directly and do not load `.env`. Run them with
+`node --env-file=.env ./node_modules/vitest/vitest.mjs run --config
+vitest.integration.config.js` from `server/` instead of passing database values
+through shell overrides.
 
 Never commit `server/.env` or `infrastructure/.env`. Both are ignored by Git.
 Commit only `.env.example` files with safe placeholders.
@@ -67,39 +69,40 @@ Set the database values from `infrastructure/.env`:
 
 ```text
 MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
+MYSQL_PORT=3308
 MYSQL_USER=syncsphere
 MYSQL_PASSWORD=<MYSQL_PASSWORD from infrastructure/.env>
 MYSQL_DATABASE=syncsphere
-MONGODB_URI=mongodb://syncsphere:<MONGODB_APP_PASSWORD from infrastructure/.env>@127.0.0.1:27017/syncsphere?authSource=syncsphere
+MONGODB_URI=mongodb://syncsphere:<MONGODB_APP_PASSWORD from infrastructure/.env>@127.0.0.1:27018/syncsphere?authSource=syncsphere
 MONGODB_DATABASE=syncsphere
-REDIS_URL=redis://:<REDIS_PASSWORD from infrastructure/.env>@127.0.0.1:6379
+REDIS_URL=redis://:<REDIS_PASSWORD from infrastructure/.env>@127.0.0.1:6380
 ```
 
 Uncomment the database block only after real local credentials are available.
 Do not invent credentials or copy production secrets into local files.
 
-### Active local direct-service configuration
+### Active local Compose configuration
 
-The current local setup uses the Task 14 direct database services instead of
-Docker Compose. Their verified endpoints are:
+The current local setup uses the Docker Compose stack. The verified endpoints
+are:
 
-- MySQL: `127.0.0.1:3307`, database `syncsphere`, using a dedicated local
-  application user with privileges scoped to that database.
-- MongoDB: `127.0.0.1:37017`, database `syncsphere`, local no-auth service.
-- Redis: `127.0.0.1:16379`, database `0`, local no-auth service.
+- MySQL: `127.0.0.1:3308`, database `syncsphere`, dedicated application user
+  with privileges scoped to that database.
+- MongoDB: `127.0.0.1:27018`, database `syncsphere`, application user with
+  `authSource=syncsphere`.
+- Redis: `127.0.0.1:6380`, database `0`, password required.
 
 These values are active in `server/.env` with
-`DATABASE_STARTUP_POLICY=required`. The generated MySQL password is stored only
-in that ignored file and must never be copied into documentation, examples, or
-shell history. All `server` npm scripts load `server/.env` automatically, so no
-shell overrides are needed for local startup, migrations, or integration tests.
+`DATABASE_STARTUP_POLICY=required`. Generated local credentials are stored only
+in ignored environment files and must never be copied into documentation,
+examples, or shell history. All `server` npm scripts load `server/.env`
+automatically; integration tests need the explicit `--env-file` runner command
+documented above.
 
-Switching to the Docker Compose stack requires replacing these direct-service
-values with the authenticated Compose values from `infrastructure/.env`,
-including MongoDB `authSource` and the Redis password. See
+The Task 14 direct services remain installed and untouched but are no longer
+the backend targets. See
 [Local Database Services](../infrastructure/database-services.md) for the
-prerequisites and safe migration steps.
+prerequisites, backup guidance, and safe migration steps.
 
 ### 3. Run migrations and start the API
 
@@ -254,17 +257,7 @@ connected.
 
 ```powershell
 Set-Location server
-
-$env:MYSQL_HOST = '127.0.0.1'
-$env:MYSQL_PORT = '3306'
-$env:MYSQL_USER = 'syncsphere'
-$env:MYSQL_PASSWORD = '<MYSQL_PASSWORD>'
-$env:MYSQL_DATABASE = 'syncsphere'
-$env:MONGODB_URI = 'mongodb://syncsphere:<MONGODB_APP_PASSWORD>@127.0.0.1:27017/syncsphere?authSource=syncsphere'
-$env:MONGODB_DATABASE = 'syncsphere'
-$env:REDIS_URL = 'redis://:<REDIS_PASSWORD>@127.0.0.1:6379'
-
-npm run test:integration
+node --env-file=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.js
 ```
 
 Do not claim real database connectivity unless the services are running and the

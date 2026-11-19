@@ -1,134 +1,229 @@
-# Task 18 – Docker Desktop Setup, Database Migration, and Full Infrastructure Verification Report
+# Task 18 – Docker Compose Runtime Setup, Database Migration & Verification Report
 
-## 1. Docker Desktop Installation Status
-- Docker Desktop is **not installed** on this Windows 11 Home host.
-- Checked common installation paths, `PATH`, Docker-related services, and uninstall registry entries; no Docker Desktop installation was found.
-- No software was installed automatically.
+## 1. Docker Runtime Status
+- Docker Desktop: `4.99.0.245822`, installed under
+  `C:\Users\yuvar\AppData\Local\Programs\DockerDesktop`.
+- Docker Engine: `29.9.3`; `OSType=linux` confirmed.
+- Docker Compose: `v5.7.0`.
+- WSL2: running; `docker-desktop` distribution is Running.
+- `docker run hello-world` was already confirmed on this host by the environment
+  owner; this task did not rerun it.
+- The Docker CLI is not on the current `PATH`, so all Docker commands used the
+  explicit binary at
+  `C:\Users\yuvar\AppData\Local\Programs\DockerDesktop\resources\bin\docker.exe`
+  with its adjacent `resources\bin` directory added to `PATH` for credential
+  helpers.
+- Docker CLI, Engine, and Compose were rechecked directly and are operational.
 
-## 2. Docker Engine and Compose Versions
-- Docker CLI: unavailable (`docker` is not recognized; `where.exe docker` found nothing).
-- Docker Engine: unavailable; `docker info` could not run.
-- Docker Compose: unavailable; `docker compose version` could not run.
-- No versions can be reported.
+## 2. Compose Service Status
+- `docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml config --quiet` passed.
+- `docker compose up -d` created the `syncsphere-data` bridge network, three named
+  volumes, and three containers.
+- Final status after startup and after non-destructive restart:
 
-## 3. WSL2 Status
-- Windows: `Microsoft Windows 11 Home Single Language`, version `10.0.22621`, build `22621`, x64.
-- WSL default version: `2`.
-- WSL kernel version: `5.10.102.1`.
-- Installed WSL distributions: **none**.
-- `systeminfo` reports a hypervisor is already detected; detailed Hyper-V feature state could not be read without elevation.
-- Virtualization appears available at the hypervisor level, but Docker Desktop still requires manual installation and a Linux distribution.
+| Service | Container | Image | Status | Health |
+| --- | --- | --- | --- | --- |
+| MySQL | `syncsphere-mysql` | `mysql:8.0` | Up | `healthy` |
+| MongoDB | `syncsphere-mongodb` | `mongo:7.0` | Up | `healthy` |
+| Redis | `syncsphere-redis` | `redis:7.4-alpine` | Up | `healthy` |
 
-## 4. Port Conflict Findings
+- All services use `restart: unless-stopped`.
+- All services are attached to the `syncsphere-data` bridge network.
+- MongoDB has a read-only bind mount for the init script, a named data volume at
+  `/data/db`, and an internal configdb volume.
+- No application container was added; the backend remains a host process as
+  required by the existing architecture.
+
+## 3. Host Port Mappings
+Pre-flight port audit:
+
 | Port | Status | Owner / Note |
 | ---: | --- | --- |
-| `3306` | In use | Unknown local `mysqld.exe` PID `7036`; must not be stopped automatically. |
-| `27017` | In use | Unknown local `mongod.exe` PID `5980`; must not be stopped automatically. |
-| `6379` | Free | Default Compose Redis host port is currently available. |
-| `3307` | In use | Known Task 14 temporary MySQL service. |
-| `37017` | In use | Known Task 14 temporary MongoDB service. |
-| `16379` | In use | Known Task 14 temporary Redis service. |
-| `3308` | Free | Proposed safe MySQL alternative, verified free. |
-| `27018` | Free | Proposed safe MongoDB alternative, verified free. |
-| `6380` | Free | Proposed safe Redis alternative, verified free. |
+| `3306` | In use | Unknown `mysqld.exe` PID `7036`; not touched. |
+| `27017` | In use | Unknown `mongod.exe` PID `5980`; not touched. |
+| `6379` | Free | Default Compose Redis port, not used. |
+| `3307` | In use | Known Task 14 temporary MySQL; not touched. |
+| `37017` | In use | Known Task 14 temporary MongoDB; not touched. |
+| `16379` | In use | Known Task 14 temporary Redis; not touched. |
+| `3308` | Free | Selected Compose MySQL host port. |
+| `27018` | Free | Selected Compose MongoDB host port. |
+| `6380` | Free | Selected Compose Redis host port. |
 
-No service, data directory, Docker volume, or credential was stopped, deleted, reset, or overwritten.
+Active localhost-only mappings:
 
-## 5. Compose Configuration Validation
-- **Static inspection only**: `infrastructure/docker-compose.yml`, `infrastructure/.env.example`, MongoDB init script, `server/.env`, `server/.env.example`, and docs were reviewed.
-- **Actual `docker compose config` validation was not run** because Docker is unavailable.
-- Static audit found:
-  - MySQL `8.0`, MongoDB `7.0`, Redis `7.4-alpine`.
-  - `restart: unless-stopped` on all three services.
-  - Named persistent volumes: `syncsphere_mysql_data`, `syncsphere_mongodb_data`, `syncsphere_redis_data`.
-  - Single `syncsphere-data` bridge network.
-  - All host port bindings are localhost-only.
-  - Health checks exist for all three services.
-  - MongoDB init script mounts read-only and creates a `readWrite` application user on the application database.
-  - Redis uses `--requirepass` and an authenticated health check.
-  - MySQL relies on the official image to create the application user and grant privileges on `MYSQL_DATABASE`.
-  - Application migrations remain a separate `npm run migrate` step.
-  - No unnecessary services were added; no architecture changes were made.
+| Service | Host mapping | Container port |
+| --- | --- | ---: |
+| MySQL | `127.0.0.1:3308->3306/tcp` | `3306` |
+| MongoDB | `127.0.0.1:27018->27017/tcp` | `27017` |
+| Redis | `127.0.0.1:6380->6379/tcp` | `6379` |
 
-## 6. Containers and Health Status
-- No containers were started.
-- No container health status can be reported.
-- No Docker network or volume mounts were exercised.
+No unknown Windows database process was stopped or modified.
 
-## 7. Persistent Volume Verification
-- Static only: named volumes are declared in Compose and safe-stop commands preserve them.
-- Runtime mount verification and restart persistence were not performed.
+## 4. Database Authentication Verification
+- MySQL application user `syncsphere` verified from inside the container:
+  - `GRANT USAGE ON *.*`
+  - `GRANT ALL PRIVILEGES ON syncsphere.*`
+  - No global privileges granted.
+- MongoDB application user verified through `connectionStatus`:
+  - authenticated user `syncsphere` on database `syncsphere`;
+  - role `readWrite` on database `syncsphere`.
+- Redis:
+  - unauthenticated `PING` returned `NOAUTH Authentication required.`;
+  - authenticated `PING` returned `PONG`;
+  - container health check authenticates successfully.
+- Compose validation used `config --quiet`; resolved credentials were not printed.
+- Generated passwords are strong, unique, local-only values stored only in
+  ignored environment files. No password, token, or secret value is included in
+  this report.
 
-## 8. MySQL Authentication and Connectivity
-- Direct-service MySQL connectivity from Task 16 remains valid through `server/.env`.
-- Compose MySQL authentication is **not verified**.
-- No root credentials were used for application connections.
-- No new credentials were generated because Docker prerequisites are missing and the task requires stopping safely at the first blocker.
+## 5. Named Volume and Persistence Verification
+Volumes created and attached:
 
-## 9. MongoDB Authentication and Connectivity
-- Direct-service MongoDB is a local no-auth service from Task 16.
-- Compose MongoDB auth is configured statically via root bootstrap and the init script application user.
-- Compose MongoDB application-user authentication is **not verified**.
-- `authSource=syncsphere` is documented but not exercised.
+| Service | Named volume | Mount path |
+| --- | --- | --- |
+| MySQL | `syncsphere_mysql_data` | `/var/lib/mysql` |
+| MongoDB | `syncsphere_mongodb_data` | `/data/db` |
+| Redis | `syncsphere_redis_data` | `/data` |
 
-## 10. Redis Authentication and Connectivity
-- Direct-service Redis is a local no-auth service from Task 16.
-- Compose Redis requires a password via `--requirepass`.
-- Compose Redis authentication is **not verified**.
-- No Redis password was invented or documented.
+Persistence test:
 
-## 11. Backend Startup and Readiness
-- The backend remains configured for the Task 14 direct services in `server/.env` with `DATABASE_STARTUP_POLICY=required`.
-- No backend startup against Compose containers was performed.
-- No Docker-based health, liveness, or readiness checks were executed in Task 18.
+- Before restart: MySQL `schema_migrations=2`, `roles=4`.
+- Created disposable test records:
+  - MongoDB document `_id=task18-check` in `task18_persistence_check`;
+  - Redis key `task18:persistence:check` with a one-hour TTL.
+- Restart used non-destructive `docker compose stop` followed by
+  `docker compose start`. No `down`, `down -v`, pruning, or volume deletion was
+  used.
+- After restart:
+  - all three containers returned to `healthy`;
+  - MySQL `schema_migrations=2`, `roles=4`;
+  - MongoDB test document was present;
+  - Redis test key returned `ok` with TTL still counting down.
+- Disposable MongoDB and Redis test records were removed after verification. No
+  application data was reset.
 
-## 12. Authentication Integration Test Results
-- No Compose-backed integration tests were run.
-- Task 16 authentication/integration results against direct services remain valid and are not being claimed as Compose verification.
+## 6. Backend Environment Alignment
+- `infrastructure/.env` was created from the example and confirmed ignored by
+  Git (`.gitignore:25`).
+- A secure local backup of `server/.env` was created at
+  `server/.env.bak.compose-20261119`; the backup is ignored by Git and its
+  contents were not printed.
+- `server/.env` was updated to the Compose-backed configuration:
+  - `DATABASE_STARTUP_POLICY=required`;
+  - MySQL `127.0.0.1:3308`, user `syncsphere`, database `syncsphere`;
+  - MongoDB authenticated URI to `127.0.0.1:27018` with
+    `authSource=syncsphere`;
+  - Redis authenticated URL to `127.0.0.1:6380`.
+- Passwords in MongoDB and Redis URLs were URL-encoded.
+- Authentication secrets and unrelated configuration were preserved.
+- No database values were supplied through shell overrides. The HTTP port was
+  temporarily overridden to `3100` for one health harness run only because an
+  unrelated local `node` process already owns port `3000`; that process was not
+  stopped.
 
-## 13. Lint and Unit Test Results
-- No new code changes were made in Task 18.
-- No new lint or unit test run was required for this blocked infrastructure step.
-- Previous Task 16 results remain: lint passed; unit tests `24` files / `183` tests passed.
+## 7. Migration Results
+- Command run from `server/`: `node --env-file=.env scripts/migrate.js`.
+- All three dependencies initialized and connected through the Compose published
+  ports.
+- Migrations applied:
+  - `001_auth_schema` — 6 statements;
+  - `002_auth_seed` — 6 statements.
+- Migration command completed successfully and shut down dependencies in the
+  order `redis -> mongodb -> mysql`.
 
-## 14. Restart and Persistence Test Results
-- Not performed. Docker is unavailable and no Compose containers were started.
+## 8. Health/Readiness Results
+Backend startup ran through the real `startServer()` lifecycle with `.env`
+loaded and no Windows loopback preload.
 
-## 15. Files Modified
-- `docs/infrastructure/database-services.md`: clarified `docker compose stop` vs `down` vs `down -v` and added a production-readiness review checklist.
-- `TASK-18-DOCKER-SETUP-AND-MIGRATION-REPORT.md`: added this report.
-- No Compose files, environment files, application code, or credentials were changed.
-- No Git staging, commit, push, or history modification was performed.
+- `/api/v1/health` — `200`, `status=healthy`.
+- `/api/v1/health/live` — `200`, `status=alive`.
+- `/api/v1/health/ready` — `200`, `status=ready`, with:
+  - `mysql=connected`
+  - `mongodb=connected`
+  - `redis=connected`
+- Graceful shutdown was triggered with `SIGTERM`; resources closed in order
+  `redis -> mongodb -> mysql`; process exited `0`.
 
-## 16. Remaining Issues / Required Manual Actions
-1. Install Docker Desktop for Windows from the official Docker documentation: <https://docs.docker.com/desktop/install/windows-install/>.
-2. Install an Ubuntu WSL2 distribution, preferably from an elevated PowerShell:
-   ```powershell
-   wsl --install -d Ubuntu
-   ```
-   Reboot if prompted.
-3. Start Docker Desktop and select Linux container mode.
-4. Verify readiness:
-   ```powershell
-   docker --version
-   docker compose version
-   docker info --format "{{.OSType}}"
-   wsl --list --verbose
-   ```
-   `OSType` must be `linux`.
-5. Create `infrastructure/.env` from `infrastructure/.env.example` and set strong local-only passwords.
-6. Resolve port conflicts. Safe verified alternatives are `MYSQL_PORT=3308`, `MONGODB_PORT=27018`, and `REDIS_PORT=6380`. Do not stop unknown PIDs `7036` or `5980` automatically.
-7. Align `server/.env` with `infrastructure/.env`, including authenticated MongoDB URI with `authSource=syncsphere`, authenticated Redis URL, and the dedicated MySQL application user.
-8. Validate Compose with `docker compose config`.
-9. Start with `docker compose up -d`, verify health, run migrations, then run backend startup/readiness and the integration suite.
-10. Perform restart/persistence checks only after containers are healthy and volumes are confirmed.
+## 9. Unit and Integration Test Results
+- `npm run lint` — passed.
+- `npm test` — passed: `24` files, `183` tests.
+- Compose-backed integration suite — passed: `6` files, `32` tests.
+- Integration command used:
+  `node --env-file=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.js`.
+- The suite ran without the previous Windows port-allocation preload workaround.
+- Two test-support fixes were required for authenticated Compose services:
+  - the Redis reconnect proxy now preserves the source Redis URL credentials;
+  - the auth-flow test resets loopback auth rate-limit counters before and after
+    the suite so repeated runs are deterministic.
 
-## 17. Production Readiness Gaps
-- No production secrets or secret manager integration.
-- No TLS verification for MySQL, MongoDB, or Redis.
-- No backup, restore, retention, or DR test.
-- No HA/Primary DC/DR validation.
-- No production monitoring, alerting, capacity planning, or failover runbook verification.
-- No production deployment or readiness claim is made.
+## 10. Authentication/RBAC Test Results
+Executed and passed inside the Compose-backed integration suite:
 
-**Conclusion:** Task 18 is blocked at the Docker readiness stage. Static inspection and safe documentation updates are complete, but Compose validation, container runtime, authentication, backend-to-container connectivity, integration tests, and persistence/restart verification remain unexecuted because Docker Desktop/CLI/Engine/Compose are absent and WSL2 has no installed Linux distribution.
+- registration persists a disposable user in MySQL;
+- login authenticates an access token and lists the current session;
+- separate session revocation rejects its access token;
+- refresh token rotation, reuse detection, and token-family revocation;
+- logout revokes the session and rejects the revoked access token;
+- no active refresh sessions remain for the disposable user;
+- Redis rate-limit store increments, reads, decrements, and resets;
+- Redis auth revocation cache entries;
+- Redis reconnects after a real network interruption;
+- Redis fails closed when unavailable;
+- MySQL transactions commit and roll back;
+- MySQL duplicate-key and foreign-key constraints are enforced;
+- MongoDB CRUD, unique index creation, duplicate rejection, reconnect, and
+  closed-client rejection.
+
+RBAC authorization is covered by the unit suite (`auth-routes.test.js`), which
+passed in the `183` unit tests. There is no separate RBAC integration test file
+in the existing suite.
+
+## 11. Files Modified
+Tracked/workspace files changed by this task:
+
+- `infrastructure/.env` — created, ignored local Compose credentials.
+- `server/.env` — aligned to Compose services; ignored.
+- `server/.env.bak.compose-20261119` — secure ignored backup.
+- `server/tests/integration/support/redis-proxy.js` — preserve source Redis URL
+  credentials through the proxy.
+- `server/tests/integration/redis.integration.test.js` — pass source URL to the
+  proxy.
+- `server/tests/integration/auth-flow.integration.test.js` — reset loopback auth
+  rate-limit counters for deterministic repeated runs.
+- `docs/infrastructure/database-services.md` — active Compose configuration,
+  environment setup, health/migration commands, volumes, backup/restore
+  guidance, stop/down/down -v differences, and Windows/WSL2 troubleshooting.
+- `docs/configuration/environment.md` — active Compose values and explicit
+  `.env`-loaded integration command.
+- `TASK-18-DOCKER-SETUP-AND-MIGRATION-REPORT.md` — this report.
+
+An empty transient `dump.rdb` snapshot created in the repository root during
+verification was removed after confirming it contained no database keys.
+No application architecture, authentication implementation, security model, or
+API contract was changed.
+
+## 12. Remaining Limitations and Blockers
+- None blocking Task 18.
+- Local Compose setup is for development and integration testing only; no
+  production deployment or production-readiness claim is made.
+- Docker CLI is installed but not on the default `PATH`; troubleshooting docs
+  now explain the explicit path used on this host.
+- Port `3000` is occupied by an unrelated local Node process, so the backend
+  health harness used temporary HTTP port `3100`. DB settings still came only
+  from `server/.env`.
+- The Task 14 direct services and unknown Windows database services remain
+  running and untouched.
+- Production secrets, TLS, backups at rest, HA/DR, monitoring, alerting, and
+  failover runbooks remain outside this local task.
+
+## 13. Safety Confirmation
+- No Git staging, commits, pushes, or history changes were performed.
+- No Docker volumes were removed; no `down -v`, pruning, or destructive reset
+  commands were used.
+- No unknown Windows database process or Task 14 service was stopped or
+  modified.
+- No existing application database data was deleted. Only disposable test
+  records and ephemeral test rate-limit counters created by verification were
+  cleaned up.
+- No password, token, or secret value is printed in this report or committed
+  documentation.

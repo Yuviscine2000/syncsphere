@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import supertest from 'supertest';
 import { createApp } from '../../src/app.js';
 import { CSRF_HEADER_NAME } from '../../src/constants/auth.constants.js';
+import { AUTH_RATE_LIMIT_KEY_PREFIX } from '../../src/security/auth-rate-limit.store.js';
 import { ALLOWED_ORIGIN } from '../helpers/test-app.js';
 import {
   buildCookieHeader,
@@ -58,6 +59,18 @@ describe('real authentication flow', () => {
     });
   }
 
+  async function resetAuthRateLimits() {
+    if (redisClient === undefined) {
+      return;
+    }
+
+    for (const operation of ['registration', 'login', 'session']) {
+      await redisClient
+        .del(`${AUTH_RATE_LIMIT_KEY_PREFIX}${operation}:127.0.0.1`)
+        .catch(() => {});
+    }
+  }
+
   async function login() {
     const response = await client
       .post('/api/v1/auth/login')
@@ -85,6 +98,7 @@ describe('real authentication flow', () => {
     await initializeIntegrationDatabase(context, { migrate: true });
     mysql = context.databaseManager.getClient('mysql');
     redisClient = context.databaseManager.getClient('redis').getClient();
+    await resetAuthRateLimits();
     userEmail = uniqueEmail('auth-flow');
 
     const app = createApp({
@@ -107,6 +121,7 @@ describe('real authentication flow', () => {
       }
     }
 
+    await resetAuthRateLimits();
     await closeServer(server);
 
     if (context !== undefined) {

@@ -13,6 +13,7 @@ export async function createRedisProxy({
   targetHost = '127.0.0.1',
   targetPort = 6379,
   port = 0,
+  sourceUrl,
 } = {}) {
   const sockets = new Set();
   const server = net.createServer((client) => {
@@ -44,9 +45,13 @@ export async function createRedisProxy({
     throw new Error('Redis proxy did not expose a TCP address.');
   }
 
+  const proxyUrl = new URL(sourceUrl ?? 'redis://127.0.0.1:0');
+  proxyUrl.hostname = '127.0.0.1';
+  proxyUrl.port = String(address.port);
+
   return {
     port: address.port,
-    url: `redis://127.0.0.1:${address.port}`,
+    url: proxyUrl.toString(),
     async close() {
       for (const socket of sockets) {
         socket.destroy();

@@ -131,7 +131,7 @@ describe('real Redis integration', () => {
   it('reconnects after a real network interruption', async () => {
     const target = new URL(context.config.database.redis.url);
     const targetPort = Number(target.port.length > 0 ? target.port : 6379);
-    const proxy = await createRedisProxy({ targetPort });
+    const proxy = await createRedisProxy({ targetPort, sourceUrl: target.toString() });
     const proxyContext = createIntegrationDatabase({
       configOverrides: {
         ...REDIS_ONLY_OVERRIDES,
@@ -152,6 +152,7 @@ describe('real Redis integration', () => {
       const restartedProxy = await createRedisProxy({
         targetPort,
         port: proxy.port,
+        sourceUrl: target.toString(),
       });
 
       try {

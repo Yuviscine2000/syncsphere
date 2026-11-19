@@ -24,9 +24,9 @@ does not install Docker automatically.
 
 1. Install Docker Desktop for Windows from the official Docker documentation:
    <https://docs.docker.com/desktop/install/windows-install/>.
-2. Install or enable WSL2 and at least one Linux distribution. On the current
-   host the WSL2 kernel is present, but no distributions are installed. If
-   needed, run this in an elevated PowerShell, then reboot:
+2. Install or enable WSL2 and at least one Linux distribution. Verify the
+   installed distributions with `wsl --list --verbose`. If needed, run this in
+   an elevated PowerShell, then reboot:
 
    ```powershell
    wsl --install -d Ubuntu
@@ -54,60 +54,75 @@ Set the database values there to match `infrastructure/.env`. The full variable
 reference, validation rules, and production checklist are in
 [Environment Configuration](../configuration/environment.md).
 
+Integration tests are launched by Vitest directly and do not load `.env`
+themselves. Run them with `node --env-file=.env ./node_modules/vitest/vitest.mjs
+run --config vitest.integration.config.js` from `server/` so the same values are
+used without shell overrides.
+
 Do not put API authentication secrets in `infrastructure/.env`, and do not put
 Compose root passwords in `server/.env`.
 
-## Active Direct Services
+## Active Compose Configuration
 
-The current local verification uses the Task 14 direct services rather than the
-Compose stack:
+The active local stack is the Docker Compose stack. The currently verified host
+ports avoid the unknown services on `3306` and `27017` and the Task 14 direct
+services on `3307`, `37017`, and `16379`:
 
 | Service | Endpoint | Authentication | Notes |
 | --- | --- | --- | --- |
-| MySQL | `127.0.0.1:3307` | Dedicated application user | Database `syncsphere`; privileges are scoped to that database. |
-| MongoDB | `127.0.0.1:37017` | None | Local development service; database `syncsphere`. |
-| Redis | `127.0.0.1:16379` | None | Local development service; database `0`. |
+| MySQL | `127.0.0.1:3308` | Dedicated application user | Database `syncsphere`; privileges are scoped to that database. |
+| MongoDB | `127.0.0.1:27018` | Application user | Database `syncsphere`; `authSource=syncsphere`. |
+| Redis | `127.0.0.1:6380` | Password required | Database `0`. |
 
 `server/.env` is the single source of truth for the active application
-connection settings. It is ignored by Git and contains the generated local
-MySQL password; do not print, copy, or document that value. The npm scripts in
+connection settings. It is ignored by Git and contains generated local
+credentials; do not print, copy, or document those values. The npm scripts in
 `server/` load this file automatically, so do not pass database settings through
-shell overrides for normal local startup, migrations, or integration tests.
+shell overrides for normal local startup or migrations. Use the `--env-file`
+integration command documented above.
 
-The Compose workflow below remains the reproducible setup for new environments
-and uses its own credentials from `infrastructure/.env`.
+The Task 14 direct services remain installed and untouched; they are no longer
+the active backend targets.
 
 ## First-Time Setup
 
-1. Copy the example environment file:
+1. Copy the example environment file if `infrastructure/.env` does not exist:
 
    ```powershell
    Copy-Item infrastructure/.env.example infrastructure/.env
    ```
 
-2. Replace every `replace-with-*` placeholder in `infrastructure/.env`.
-   Use strong local-only passwords. Do not commit `infrastructure/.env`.
+2. Generate strong, unique local-development passwords for every
+   `replace-with-*` placeholder in `infrastructure/.env`. Keep the file ignored
+   by Git. If the file already exists, preserve its credentials and do not
+   overwrite them.
 
-3. Check the host ports selected in `infrastructure/.env` before starting:
+3. Make a secure local backup of `server/.env` before aligning it, then replace
+   only the database settings with the matching Compose host ports and
+   credentials. Preserve all authentication secrets and unrelated settings.
+   URL-encode passwords used inside MongoDB and Redis URIs.
+
+4. Check the host ports selected in `infrastructure/.env` before starting:
 
    ```powershell
    Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-     Where-Object { $_.LocalPort -in 3306,27017,6379 }
+     Where-Object { $_.LocalPort -in 3306,27017,6379,3307,37017,16379,3308,27018,6380 }
    ```
 
    If a port is already in use by a service you do not own, do not stop it.
    Choose a free host port in `infrastructure/.env` and update the matching
-   value in `server/.env`. The current workstation has `3306` and `27017`
-   occupied by unknown local services, and the Task 14 services occupy
-   `3307`, `37017`, and `16379`.
+   value in `server/.env`. On the verified workstation, `3306` and `27017` are
+   occupied by unknown local services, the Task 14 services occupy `3307`,
+   `37017`, and `16379`, and `3308`, `27018`, and `6380` are free.
 
-4. Start the services from the repository root:
+5. Validate and start the services from the repository root:
 
    ```powershell
+   docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml config --quiet
    docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml up -d
    ```
 
-5. Wait for all health checks to pass:
+6. Wait for all health checks to pass:
 
    ```powershell
    docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml ps
@@ -131,25 +146,24 @@ docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.y
 docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml logs -f
 
 # Stop without deleting data
-docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml down
+docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml stop
+
+# Resume the same containers
+docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml start
 ```
 
 Command differences:
 
 - `docker compose stop` stops containers but keeps them present. Volumes and
-  container metadata remain, and `docker compose up -d` resumes the same
-  containers.
+  container metadata remain, and `docker compose start` resumes the same
+  containers. This is the preferred non-destructive restart operation.
 - `docker compose down` stops and removes the containers and Compose network,
   but preserves named volumes and database data.
 - `docker compose down -v` also removes the named volumes. This permanently
-  deletes local database data and must not be used casually.
+  deletes local database data and must not be used for routine shutdowns.
 
-To reset local data, remove the named volumes explicitly. This is destructive
-and should only be used for disposable local environments:
-
-```powershell
-docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml down -v
-```
+Never use pruning commands or volume deletion commands during normal local
+development.
 
 ## Connection Strings
 
@@ -164,7 +178,7 @@ MySQL:
 
 ```text
 MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3306
+MYSQL_PORT=3308
 MYSQL_USER=syncsphere
 MYSQL_PASSWORD=<MYSQL_PASSWORD>
 MYSQL_DATABASE=syncsphere
@@ -173,21 +187,20 @@ MYSQL_DATABASE=syncsphere
 MongoDB application user:
 
 ```text
-MONGODB_URI=mongodb://syncsphere:<MONGODB_APP_PASSWORD>@127.0.0.1:27017/syncsphere?authSource=syncsphere
+MONGODB_URI=mongodb://syncsphere:<MONGODB_APP_PASSWORD>@127.0.0.1:27018/syncsphere?authSource=syncsphere
 MONGODB_DATABASE=syncsphere
 ```
 
 Redis:
 
 ```text
-REDIS_URL=redis://:<REDIS_PASSWORD>@127.0.0.1:6379
+REDIS_URL=redis://:<REDIS_PASSWORD>@127.0.0.1:6380
 ```
 
 The integration test defaults are credential-free and target the default ports.
-Always set the `MYSQL_*`, `MONGODB_URI`, and `REDIS_URL` shell variables when
-using the Compose stack with passwords. For the active local direct services,
-run the test runner with `node --env-file=.env` from `server/` instead, so the
-same `server/.env` values are used.
+Do not rely on those defaults for the authenticated Compose stack. Load
+`server/.env` with `node --env-file=.env` instead of passing database values
+through shell overrides.
 
 ## Integration Tests
 
@@ -195,25 +208,18 @@ Integration tests use real services and are separate from unit tests:
 
 ```powershell
 Set-Location server
-
-$env:MYSQL_HOST = '127.0.0.1'
-$env:MYSQL_PORT = '3306'
-$env:MYSQL_USER = 'syncsphere'
-$env:MYSQL_PASSWORD = '<MYSQL_PASSWORD>'
-$env:MYSQL_DATABASE = 'syncsphere'
-$env:MONGODB_URI = 'mongodb://syncsphere:<MONGODB_APP_PASSWORD>@127.0.0.1:27017/syncsphere?authSource=syncsphere'
-$env:MONGODB_DATABASE = 'syncsphere'
-$env:REDIS_URL = 'redis://:<REDIS_PASSWORD>@127.0.0.1:6379'
-
-npm run test:integration
+node --env-file=.env ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.js
 ```
+
+`npm run test:integration` does not load `server/.env` by itself because the
+script invokes Vitest directly. Use the command above for Compose-backed runs.
 
 Useful commands:
 
 ```powershell
 npm test                    # unit tests only
-npm run test:integration    # real database integration tests
-npm run test:integration:watch
+npm run lint                # lint
+node --env-file=.env scripts/migrate.js   # explicit .env migration runner
 ```
 
 The integration tests create uniquely named rows, collections, and Redis keys.
@@ -241,6 +247,34 @@ Readiness reports each dependency as `connected`, `not_configured`, or
 `unavailable`. Configuration success is not the same as connectivity success:
 only report a database as verified after these endpoints or the integration
 suite pass against a running service.
+
+## Backup and Restore Guidance
+
+Backups are for local recovery and migration checks, not production readiness.
+Store backup files outside the repository and never commit them.
+
+Create logical backups from the running containers without exposing passwords:
+
+```powershell
+docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml exec -T mysql sh -c 'mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' > syncsphere-mysql.sql
+docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml exec -T mongodb sh -c 'mongodump --uri "mongodb://$MONGODB_APP_USERNAME:$MONGODB_APP_PASSWORD@localhost:27017/$MONGODB_DATABASE?authSource=$MONGODB_DATABASE" --archive' > syncsphere-mongodb.archive
+docker compose --env-file infrastructure/.env -f infrastructure/docker-compose.yml exec -T redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning --rdb /dev/stdout' > syncsphere-redis.rdb
+```
+
+Before any restore:
+
+- stop backend writes and confirm no application process is using the databases;
+- verify the backup file is complete and can be read;
+- restore into a disposable Compose stack first and run the integration suite;
+- never remove volumes, prune Docker data, or use `down -v` as a restore step;
+- never overwrite an existing database without a verified backup and explicit
+  approval.
+
+Restore procedures are environment-specific. MySQL and MongoDB logical dumps can
+be imported into a prepared empty schema/database with their native client
+tools. Redis RDB restoration requires replacing the persistence file inside the
+Redis volume while the service is stopped, so it must be rehearsed in a
+disposable environment before use.
 
 ## Production Differences
 
@@ -284,8 +318,11 @@ Compose workflow.
 
 ## Docker Troubleshooting
 
-- `docker: command not found`: Docker Desktop is not installed or its CLI is not
-  on `PATH`. Install and start Docker Desktop, then open a new terminal.
+- `docker: command not found`: Docker Desktop is not installed, not running, or
+  its CLI is not on `PATH`. Install and start Docker Desktop, then open a new
+  terminal. If Docker Desktop is installed under
+  `C:\Users\<user>\AppData\Local\Programs\DockerDesktop`, add its
+  `resources\bin` directory to `PATH` for the current shell.
 - `Cannot connect to the Docker daemon`: start Docker Desktop and wait until the
   engine is running. Verify with `docker info`.
 - `OSType` is not `linux`: switch Docker Desktop to Linux containers. Do not run
@@ -303,16 +340,13 @@ Compose workflow.
 
 ## Local Windows Verification Note
 
-The repository integration suite was also exercised against locally installed
-services without Docker on Windows. Because that host exhibited a loopback
-source-port reuse issue (`EADDRINUSE` on repeated loopback connections), the
-verification run used a temporary, non-committed Node preload that assigned a
-unique local port to loopback connections. That workaround is specific to the
-host and is not part of the application or the test suite. On a normal Docker
-host, run the commands above without any preload.
+The Compose-backed integration suite was executed without the earlier Windows
+loopback port preload workaround. Migrations, backend health checks, and all
+integration tests connected to the authenticated Compose services using
+`127.0.0.1` published ports.
 
-If loopback connections fail with `EADDRINUSE` on Windows:
+If loopback connections still fail with `EADDRINUSE` on Windows:
 
-- Re-run the suite after the operating system releases stale TCP connections.
-- Prefer the Docker Compose stack, which avoids the host-level port reuse issue.
-- Do not add local-port workarounds to production code.
+- re-run the suite after the operating system releases stale TCP connections;
+- confirm no unrelated process owns the selected host port;
+- do not add local-port workarounds to application or production code.
