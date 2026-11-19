@@ -16,6 +16,36 @@ All published ports bind to `127.0.0.1` only. The services share the
 `syncsphere-data` bridge network and use health checks before they are
 considered ready.
 
+## Application Environment
+
+The API reads `server/.env` through `--env-file-if-exists` in the npm scripts.
+Set the database values there to match `infrastructure/.env`. The full variable
+reference, validation rules, and production checklist are in
+[Environment Configuration](../configuration/environment.md).
+
+Do not put API authentication secrets in `infrastructure/.env`, and do not put
+Compose root passwords in `server/.env`.
+
+## Active Direct Services
+
+The current local verification uses the Task 14 direct services rather than the
+Compose stack:
+
+| Service | Endpoint | Authentication | Notes |
+| --- | --- | --- | --- |
+| MySQL | `127.0.0.1:3307` | Dedicated application user | Database `syncsphere`; privileges are scoped to that database. |
+| MongoDB | `127.0.0.1:37017` | None | Local development service; database `syncsphere`. |
+| Redis | `127.0.0.1:16379` | None | Local development service; database `0`. |
+
+`server/.env` is the single source of truth for the active application
+connection settings. It is ignored by Git and contains the generated local
+MySQL password; do not print, copy, or document that value. The npm scripts in
+`server/` load this file automatically, so do not pass database settings through
+shell overrides for normal local startup, migrations, or integration tests.
+
+The Compose workflow below remains the reproducible setup for new environments
+and uses its own credentials from `infrastructure/.env`.
+
 ## First-Time Setup
 
 1. Copy the example environment file:
@@ -97,7 +127,9 @@ REDIS_URL=redis://:<REDIS_PASSWORD>@127.0.0.1:6379
 
 The integration test defaults are credential-free and target the default ports.
 Always set the `MYSQL_*`, `MONGODB_URI`, and `REDIS_URL` shell variables when
-using the Compose stack with passwords.
+using the Compose stack with passwords. For the active local direct services,
+run the test runner with `node --env-file=.env` from `server/` instead, so the
+same `server/.env` values are used.
 
 ## Integration Tests
 
@@ -128,6 +160,42 @@ npm run test:integration:watch
 
 The integration tests create uniquely named rows, collections, and Redis keys.
 They clean up only the data they create and do not truncate shared databases.
+
+## Verify Connectivity
+
+Start the API with the database variables configured:
+
+```powershell
+Set-Location server
+npm run migrate
+npm run dev
+```
+
+Check liveness, readiness, and dependency details:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:3000/api/v1/health/live
+Invoke-RestMethod http://127.0.0.1:3000/api/v1/health/ready
+Invoke-RestMethod http://127.0.0.1:3000/api/v1/health
+```
+
+Readiness reports each dependency as `connected`, `not_configured`, or
+`unavailable`. Configuration success is not the same as connectivity success:
+only report a database as verified after these endpoints or the integration
+suite pass against a running service.
+
+## Production Differences
+
+Local Compose settings are not production settings:
+
+- Use `NODE_ENV=production` and `DATABASE_STARTUP_POLICY=required`.
+- Use explicit HTTPS `CORS_ORIGIN` values and `AUTH_REFRESH_COOKIE_SECURE=true`.
+- Use independent secrets from a secret manager, not local `.env` values.
+- Use `MYSQL_SSL=true`, a TLS-enabled MongoDB URI, and `rediss://` for Redis
+  unless the network is private and trusted.
+- Do not expose database ports publicly.
+- Do not use Compose root passwords or local application passwords in
+  production.
 
 ## Safety Rules
 

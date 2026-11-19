@@ -18,6 +18,8 @@ The fixed architecture is documented in
 Local MySQL, MongoDB, and Redis setup, connection settings, and integration
 test instructions are documented in
 [docs/infrastructure/database-services.md](docs/infrastructure/database-services.md).
+The API environment reference and production checklist are in
+[docs/configuration/environment.md](docs/configuration/environment.md).
 
 Highlights:
 
